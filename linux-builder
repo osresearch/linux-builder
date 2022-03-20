@@ -51,7 +51,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-O', '--output-dir',
 	dest='output', type=str,
 	default='build',
-	help="Directory for build")
+	help="Directory for Linux source and builds")
+parser.add_argument('-T', '--tag',
+	dest='tag', type=str,
+	default=None,
+	help="Short name for the build (default inferred from config file)")
 parser.add_argument('-V', '--version',
 	dest='version', type=str,
 	default='5.4.117',
@@ -115,7 +119,9 @@ if not exists(config_file):
 (config, config_hash) = readfile(config_file)
 
 major = version.split('.')[0]
-tag = os.path.splitext(os.path.basename(config_file))[0]
+tag = args.tag
+if not tag:
+	tag = os.path.splitext(os.path.basename(config_file))[0]
 patch_tag = ''
 if patch_file:
 	if not exists(patch_file):
@@ -129,16 +135,17 @@ linux_tar = os.path.join(output_dir, "linux-" + version + ".tar.xz")
 linux_dir = os.path.join(output_dir, "linux-" + version + patch_tag)
 linux_url = linux_url_base + ".tar.xz"
 linux_sig = linux_url_base + ".tar.sign"
-build_dir = os.path.join(output_dir, "linux-" + version + "-" + tag + patch_tag)
-build_rdir = os.path.join("..", "linux-" + version + "-" + tag + patch_tag)
+build_dir = os.path.join(output_dir, "linux-" + version + "-" + tag)
+build_rdir = os.path.join("..", "linux-" + version + "-" + tag)
 kconfig_file = os.path.join(build_dir, ".config")
+kernel_file = os.path.join(output_dir, "vmlinuz-" + tag)
 
 if verbose > 1:
 	print("URL     = " + linux_url)
 	print("source  = " + linux_dir)
 	print("build   = " + build_dir)
 	print("kconfig = " + kconfig_file)
-	print("tag     = " + tag + patch_tag)
+	print("tag     = " + tag)
 
 if args.clean:
 	print("Removing " + linux_dir + " and " + build_dir, file=sys.stderr)
@@ -263,7 +270,6 @@ system(*make,
 
 (kernel, kernel_hash) = readfile(os.path.join(build_dir, "arch", "x86", "boot", "bzImage"))
 
-kernel_file = os.path.join(output_dir, "vmlinuz-" + tag + patch_tag)
 writefile(kernel_file, kernel)
 
 if verbose > 0:
