@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 # Build a Linux kernel based on a config file
-# TODO: fix make propagation
 import argparse
 import os
 import sys
@@ -101,6 +100,10 @@ parser.add_argument( '-U', '--uncompressed',
 	dest='initrd_uncompressed', action='store_true',
 	default=False,
 	help="Do not compress the initrd for faster boot")
+parser.add_argument( '-L', '--link',
+	dest='symlinks', action='append',
+	default=[],
+	help="Symlinks to add to the build tree for external code dir=../real")
 
 args = parser.parse_args()
 version = args.version
@@ -154,6 +157,7 @@ if args.clean:
 
 unpack_canary = os.path.join(linux_dir, ".unpacked")
 patch_canary = os.path.join(linux_dir, ".patched")
+symlink_canary = os.path.join(linux_dir, ".symlinks")
 config_canary = os.path.join(build_dir, ".configured")
 
 if not exists(linux_tar):
@@ -190,6 +194,14 @@ if patch_file:
 				"-p1",
 			)
 		writefile(patch_canary, patch_hash.encode('utf-8'))
+
+if not exists(symlink_canary):
+	for symlink in args.symlinks:
+		(src,dest) = symlink.split('=')
+		src = os.path.join(linux_dir, src)
+		info("symlink " + src + " => " + dest)
+		system("ln", "-s", dest, src)
+	writefile(symlink_canary, b'')
 
 if args.menuconfig:
 	# re-write the config with the unmodified version
