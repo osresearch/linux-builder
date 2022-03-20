@@ -1,0 +1,214 @@
+#!/usr/bin/python3
+# Build a Linux kernel based on a config file
+# TODO: fix make propagation
+import argparse
+import os
+import sys
+import subprocess
+import hashlib
+import shlex
+from tempfile import NamedTemporaryFile
+
+verbose = 1
+
+def system(*s):
+	if verbose > 2:
+		print(s)
+	# do not close file descriptors, which will allow
+	# communication from sub-make invocations to the make
+	# that invoked us
+	subprocess.run(s, check=True, close_fds=False)
+def die(*s):
+	print(*s, file=sys.stderr)
+	exit(1)
+def info(s):
+	if verbose > 0:
+		print(s, file=sys.stderr)
+def exists(f):
+	try:
+		os.stat(f)
+		return True
+	except Exception as e:
+		return False
+def readfile(filename):
+	with open(filename, "rb") as f:
+		data = f.read()
+	data_hash = hashlib.sha256(data).hexdigest()
+	return (data, data_hash)
+def writefile(filename, data):
+	with open(filename, "wb") as f:
+		f.write(data)
+
+# allow $MAKE to be overridden in the environment, which
+# will inherit from Makefiles.  Note that it is split
+# into separate words so that the shell is not invoked
+# on sub-make builds
+make = os.getenv("MAKE")
+if not make:
+	make = "make"
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-O', '--output-dir',
+	dest='output', type=str,
+	default='build',
+	help="Directory for build")
+parser.add_argument('-V', '--version',
+	dest='version', type=str,
+	default='5.4.117',
+	help="Linux kernel version to build")
+parser.add_argument( '-v', '--verbose',
+	dest='verbose', action='count', default=1,
+	help="Verbose build")
+parser.add_argument( '-s', '--silent',
+	dest='verbose', action='store_const', const=0,
+	help="Verbose build (add more for more verbosity)")
+parser.add_argument( '-m', '--menuconfig',
+	dest='menuconfig', action='store_true',
+	help="Run menuconfig on the config file")
+parser.add_argument( '-C', '--clean',
+	dest='clean', action='store_true',
+	help="Clean the build directory and source directory")
+parser.add_argument('-c', '--config',
+	dest='config', type=str,
+	default=None,
+	required=True,
+	help="Linux kernel config file (required)")
+parser.add_argument('-p', '--patch',
+	dest='patch', type=str,
+	default=None,
+	help="Linux kernel patch file (optional)")
+parser.add_argument( '-M', '--make',
+	dest='make', type=str,
+	default=make,
+	help="Override the $(MAKE) environment variable")
+
+args = parser.parse_args()
+version = args.version
+verbose = args.verbose
+config_file = args.config
+patch_file = args.patch
+output_dir = args.output
+
+# split it into words following shell semantics
+make = shlex.split(make)
+
+if not exists(config_file):
+	die(config_file + ": config file does not exist?")
+
+(config, config_hash) = readfile(config_file)
+
+major = version.split('.')[0]
+tag = os.path.splitext(os.path.basename(config_file))[0]
+patch_tag = ''
+if patch_file:
+	if not exists(patch_file):
+		die(patch_file + ": patch file does not exist?")
+	(patch, patch_hash) = readfile(patch_file)
+	patch_tag = "-" + os.path.splitext(os.path.basename(patch_file))[0]
+
+linux_url_base = "https://cdn.kernel.org/pub/linux/kernel/v%s.x/linux-%s" % (major, version)
+
+linux_tar = os.path.join(output_dir, "linux-" + version + ".tar.xz")
+linux_dir = os.path.join(output_dir, "linux-" + version + patch_tag)
+linux_url = linux_url_base + ".tar.xz"
+linux_sig = linux_url_base + ".tar.sign"
+build_dir = os.path.join(output_dir, "linux-" + version + "-" + tag + patch_tag)
+build_rdir = os.path.join("..", "linux-" + version + "-" + tag + patch_tag)
+kconfig = os.path.join(build_dir, ".config")
+
+if verbose > 1:
+	print("URL     = " + linux_url)
+	print("source  = " + linux_dir)
+	print("build   = " + build_dir)
+	print("kconfig = " + kconfig)
+	print("tag     = " + tag + patch_tag)
+
+if args.clean:
+	print("Removing " + linux_dir + " and " + build_dir, file=sys.stderr)
+	system("rm", "-rf", linux_dir, build_dir)
+	exit(0)
+
+unpack_canary = os.path.join(linux_dir, ".unpacked")
+patch_canary = os.path.join(linux_dir, ".patched")
+
+if not exists(linux_tar):
+	info(linux_url + ": fetching")
+	system("wget", "-O", linux_tar, linux_url)
+	# TODO: signature verification
+
+if not exists(unpack_canary):
+	info(linux_tar + ": unpacking")
+	os.makedirs(linux_dir, exist_ok=True)
+	system("tar",
+		"-xf", linux_tar,
+		"-C", linux_dir,
+		"--strip-components", "1",
+	)
+
+	writefile(unpack_canary, b'')
+
+if patch_file:
+	if exists(patch_canary):
+		(oldpatch_hash,hashhash) = readfile(patch_canary)
+		if oldpatch_hash != patch_hash.encode('utf-8'):
+			die(patch_file + ": wrong patch applied! delete source directory " + linux_dir + " and try again", patch_hash, oldpatch_hash)
+	else:
+		# since patch chdir into the linux_dir,
+		# we need an absolute path to the patch
+		info(patch_file + ": applying patch")
+		with NamedTemporaryFile() as tmp:
+			tmp.write(patch)
+			system("patch",
+				"--input", tmp.name,
+				"--directory", linux_dir,
+				"-p1",
+			)
+		writefile(patch_canary, patch_hash.encode('utf-8'))
+
+if not exists(kconfig) \
+or os.stat(kconfig).st_mtime < os.stat(config_file).st_mtime:
+	info(kconfig + ": rebuilding kernel config")
+	os.makedirs(build_dir, exist_ok=True)
+	system("cp", config_file, kconfig)
+	system(*make,
+		"-C", linux_dir,
+		"O=" + build_rdir,
+		"olddefconfig"
+	)
+
+if args.menuconfig:
+	system(*make,
+		"-j1",
+		"-C", linux_dir,
+		"O=" + build_rdir,
+		"menuconfig",
+		"savedefconfig"
+	)
+	system("cp",
+		os.path.join(build_dir,"defconfig"),
+		config_file,
+	)
+	exit(0)
+	
+# finally ready to build!
+verbose_str = "V=0"
+if verbose > 3:
+	verbose_str = "V=1"
+
+system(*make,
+	"KBUILD_HOST=builder",
+	"KBUILD_BUILD_USER=builder",
+	"KBUILD_BUILD_TIMESTAMP=" + config_hash,
+	"KBUILD_BUILD_VERSION=" + tag + patch_tag,
+	verbose_str,
+	"-C", linux_dir,
+	"O=" + build_rdir,
+)
+
+(kernel, kernel_hash) = readfile(os.path.join(build_dir, "arch", "x86", "boot", "bzImage"))
+
+kernel_file = os.path.join(output_dir, "vmlinuz-" + tag + patch_tag)
+writefile(kernel_file, kernel)
+
+if verbose > 0:
+	print("%s: %s" % (kernel_file, kernel_hash))
