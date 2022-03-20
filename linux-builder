@@ -65,7 +65,7 @@ parser.add_argument( '-s', '--silent',
 parser.add_argument( '-m', '--menuconfig',
 	dest='menuconfig', action='store_true',
 	help="Run menuconfig on the config file")
-parser.add_argument( '-C', '--clean',
+parser.add_argument('--clean',
 	dest='clean', action='store_true',
 	help="Clean the build directory and source directory")
 parser.add_argument('-c', '--config',
@@ -81,6 +81,22 @@ parser.add_argument( '-M', '--make',
 	dest='make', type=str,
 	default=make,
 	help="Override the $(MAKE) environment variable")
+parser.add_argument( '-H', '--hostname',
+	dest='hostname', type=str,
+	default=None,
+	help="Override the default hostname in the linux config")
+parser.add_argument( '-C', '--cmdline',
+	dest='cmdline', type=str,
+	default=None,
+	help="Override the default kernel command line in the linux config")
+parser.add_argument( '-I', '--initrd',
+	dest='initrd', type=str,
+	default=None,
+	help="Override the default initrd in the linux config")
+parser.add_argument( '-U', '--uncompressed',
+	dest='initrd_uncompressed', action='store_true',
+	default=False,
+	help="Do not compress the initrd for faster boot")
 
 args = parser.parse_args()
 version = args.version
@@ -95,6 +111,7 @@ make = shlex.split(make)
 if not exists(config_file):
 	die(config_file + ": config file does not exist?")
 
+# Read the base configuration (may be updated later)
 (config, config_hash) = readfile(config_file)
 
 major = version.split('.')[0]
@@ -114,13 +131,13 @@ linux_url = linux_url_base + ".tar.xz"
 linux_sig = linux_url_base + ".tar.sign"
 build_dir = os.path.join(output_dir, "linux-" + version + "-" + tag + patch_tag)
 build_rdir = os.path.join("..", "linux-" + version + "-" + tag + patch_tag)
-kconfig = os.path.join(build_dir, ".config")
+kconfig_file = os.path.join(build_dir, ".config")
 
 if verbose > 1:
 	print("URL     = " + linux_url)
 	print("source  = " + linux_dir)
 	print("build   = " + build_dir)
-	print("kconfig = " + kconfig)
+	print("kconfig = " + kconfig_file)
 	print("tag     = " + tag + patch_tag)
 
 if args.clean:
@@ -130,6 +147,7 @@ if args.clean:
 
 unpack_canary = os.path.join(linux_dir, ".unpacked")
 patch_canary = os.path.join(linux_dir, ".patched")
+config_canary = os.path.join(linux_dir, ".configured")
 
 if not exists(linux_tar):
 	info(linux_url + ": fetching")
@@ -165,18 +183,9 @@ if patch_file:
 			)
 		writefile(patch_canary, patch_hash.encode('utf-8'))
 
-if not exists(kconfig) \
-or os.stat(kconfig).st_mtime < os.stat(config_file).st_mtime:
-	info(kconfig + ": rebuilding kernel config")
-	os.makedirs(build_dir, exist_ok=True)
-	system("cp", config_file, kconfig)
-	system(*make,
-		"-C", linux_dir,
-		"O=" + build_rdir,
-		"olddefconfig"
-	)
-
 if args.menuconfig:
+	# re-write the config with the unmodified version
+	writefile(kconfig_file, config)
 	system(*make,
 		"-j1",
 		"-C", linux_dir,
@@ -189,6 +198,53 @@ if args.menuconfig:
 		config_file,
 	)
 	exit(0)
+
+# Update the config with any overrides and recompute the hash
+if args.hostname is not None:
+	hostname = args.hostname.encode('utf-8')
+	config += b'CONFIG_DEFAULT_HOSTNAME="' + hostname + b'"\n'
+if args.initrd is not None:
+	# the initrd might be a relative path to the invocation,
+	# so make it absolute since the kernel will be built with make -C
+	initrd = os.path.abspath(args.initrd).encode('utf-8')
+	config += b'CONFIG_INITRAMFS_SOURCE="' + initrd + b'"\n'
+if args.initrd_uncompressed:
+	# boots about 2 seconds faster
+	config += b'CONFIG_INITRAMFS_COMPRESSION_NONE=y\n'
+if args.cmdline is not None:
+	cmdline = args.cmdline.encode('utf-8')
+	config += b'CONFIG_CMDLINE_BOOL=y\n'
+	config += b'CONFIG_CMDLINE="' + cmdline + b'"\n'
+
+# recompute the hash
+config_hash = hashlib.sha256(config).hexdigest()
+
+# check to see if we need to reconfigure
+reconfig = False
+if exists(config_canary):
+	# check to see if the parameters are the same
+	(oldconfig_hash,hashhash) = readfile(config_canary)
+	if os.stat(config_canary).st_mtime < os.stat(config_file).st_mtime:
+		# they have touched the local config, force a reconfig
+		reconfig = True
+	if oldconfig_hash != config_hash.encode('utf-8'):
+		reconfig = True
+else:
+	# no canary, force a reconfiguration
+	reconfig = True
+
+
+if reconfig:
+	info(kconfig_file + ": rebuilding kernel config")
+	os.makedirs(build_dir, exist_ok=True)
+	writefile(kconfig_file, config)
+	writefile(config_canary, config_hash.encode('utf-8'))
+	system(*make,
+		"-C", linux_dir,
+		"O=" + build_rdir,
+		"olddefconfig"
+	)
+
 	
 # finally ready to build!
 verbose_str = "V=0"
