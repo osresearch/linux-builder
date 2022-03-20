@@ -154,7 +154,7 @@ if args.clean:
 
 unpack_canary = os.path.join(linux_dir, ".unpacked")
 patch_canary = os.path.join(linux_dir, ".patched")
-config_canary = os.path.join(linux_dir, ".configured")
+config_canary = os.path.join(build_dir, ".configured")
 
 if not exists(linux_tar):
 	info(linux_url + ": fetching")
@@ -183,6 +183,7 @@ if patch_file:
 		info(patch_file + ": applying patch")
 		with NamedTemporaryFile() as tmp:
 			tmp.write(patch)
+			tmp.flush()
 			system("patch",
 				"--input", tmp.name,
 				"--directory", linux_dir,
@@ -258,6 +259,7 @@ verbose_str = "V=0"
 if verbose > 3:
 	verbose_str = "V=1"
 
+info(build_dir + ": starting build")
 system(*make,
 	"KBUILD_HOST=builder",
 	"KBUILD_BUILD_USER=builder",
