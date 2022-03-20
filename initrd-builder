@@ -118,7 +118,7 @@ directories = {}
 src_files = {}
 dst_files = {}
 
-def cpio_mkdirs(dest):
+def cpio_mkdirs(dest, mode = 0o777):
 	# strip any leading /
 	dest = re.sub(r'^/*', '', dest)
 	path = ''
@@ -131,7 +131,7 @@ def cpio_mkdirs(dest):
 			continue
 		if path == '':
 			continue
-		cpio_entry(path, b'', mode = 0o777 | CPIO_MODE.S_ISDIR)
+		cpio_entry(path, b'', mode = mode | CPIO_MODE.S_ISDIR)
 
 
 def cpio_add_file(src,dst):
@@ -175,6 +175,16 @@ def cpio_add_dev(name, devtype, major, minor):
 
 	cpio_entry(name, b'', mode = mode, major=major, minor=minor)
 
+def cpio_add_data(name, args):
+	if verbose:
+		print("exec", args)
+
+	# turn the args into nul separated arguments
+	data = b''
+	for arg in args:
+		data += arg.encode('utf-8') + b'\0'
+	cpio_entry(name, data)
+
 def cpio_add_symlink(name, dest):
 	if verbose:
 		print("symlink %s -> %s" % (name, dest))
@@ -199,10 +209,17 @@ def process_line(line):
 		cpio_add_symlink(words[2], words[1])
 		return
 	if words[0] == "mkdir":
-		cpio_mkdirs(words[1])
+		mode = 0o777
+		if len(words) > 2:
+			mode = int(words[2], 8)
+		cpio_mkdirs(words[1], mode)
 		return
 	if words[0] == "mknod":
 		cpio_add_dev(words[1], words[2], words[3], words[4])
+		return
+	if words[0] == "exec":
+		# command line stuff to be read by exec
+		cpio_add_data("args", words[1:])
 		return
 
 	# normal file
