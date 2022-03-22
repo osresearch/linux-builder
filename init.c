@@ -19,6 +19,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+// status updates
+#include <syslog.h>
+#include <sys/sysinfo.h>
+
 static int forkit(const char * filename)
 {
 	int fd = open(filename, O_RDONLY);
@@ -71,6 +75,40 @@ static int forkit(const char * filename)
 	}
 
 	return 0;
+}
+
+
+// occasionally log some data
+static void loginfo(void)
+{
+	while(1)
+	{
+		// schedule another wakeup
+		sleep(60);
+
+		struct sysinfo info;
+		if (sysinfo(&info) < 0)
+		{
+			perror("sysinfo");
+			continue;
+		}
+
+		const float load_scale = 1.0f / (1 << SI_LOAD_SHIFT);
+		const unsigned long mem_used = info.totalram - info.freeram;
+		const int mem_percent = (100 * mem_used) / info.totalram;
+
+		syslog(mem_percent > 80 ? LOG_ALERT : LOG_DEBUG,
+			"load %.2f,%.2f,%.2f ram %ld/%ld (%d%%) procs %d",
+			info.loads[0] * load_scale,
+			info.loads[1] * load_scale,
+			info.loads[2] * load_scale,
+			mem_used,
+			info.totalram,
+			mem_percent,
+			info.procs
+		);
+
+	}
 }
 
 int main(void)
@@ -135,11 +173,19 @@ int main(void)
 	// we do not need stdin, but our children might
 	close(0);
 
-	// now just reap children
+	openlog("init", 0, LOG_DAEMON);
+
+	if (fork() == 0)
+		loginfo();
+
 	while(1)
 	{
+
 		int status;
 		pid_t pid = wait(&status);
-		fprintf(stderr, "init: pid %d exited status %08x\n", (int) pid, status);
+		if (status != 0)
+			syslog(LOG_WARNING, "pid %d exited status %08x", pid, status);
+		else
+			fprintf(stderr, "init: pid %d exited status %08x\n", (int) pid, status);
 	}
 }
