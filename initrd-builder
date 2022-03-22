@@ -121,8 +121,9 @@ src_files = {}
 dst_files = {}
 
 def cpio_mkdirs(dest, mode = 0o777):
-	# strip any leading /
+	# strip any leading / and normalize it
 	dest = re.sub(r'^/*', '', dest)
+	dest = os.path.normpath(dest)
 	path = ''
 	for subdir in re.split(r'/+', dest):
 		if path == '':
@@ -137,8 +138,7 @@ def cpio_mkdirs(dest, mode = 0o777):
 
 
 def cpio_add_file(src,dst):
-	if not src.startswith('/'):
-		src = cwd + "/" + src
+	dst = os.path.normpath(dst)
 	if src in src_files:
 		return
 	if dst in dst_files:
@@ -231,11 +231,33 @@ def process_line(line):
 	if len(words) > 1:
 		dest = words[1]
 
+	if filename.endswith('/'):
+		# recursive directory copy
+		olddir = os.path.join(cwd, filename)
+		print('walking', olddir)
+		for root, dirs, files in os.walk(olddir):
+			# strip the non-relative path part
+			# is there a better way to do this?
+			newroot = os.path.join(dest, os.path.relpath(root, start=olddir))
+			print('---', root, newroot)
+			cpio_mkdirs(newroot)
+			for f in files:
+				oldname = os.path.join(root, f)
+				newname = os.path.join(newroot, f)
+				cpio_add_file(oldname, newname)
+
+		# ldd is *not* done on recursive directories
+		return
+
 	# allow sort of variable substitution for the uname
 	filename = re.sub(r'\$UNAME', uname, filename)
 
 	# strip the local path
 	dest_filename = os.path.basename(filename)
+
+	# if a relative file name is provided, update it with the cwd
+	if not filename.startswith('/'):
+		filename = cwd + "/" + filename
 
 	cpio_add_file(filename, dest + "/" + dest_filename)
 
