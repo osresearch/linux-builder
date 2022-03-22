@@ -37,6 +37,8 @@ static int forkit(const char * filename)
 		return -1;
 	}
 
+	close(fd);
+
 	char *argv[64] = {};
 	int argc = 0;
 
@@ -88,16 +90,27 @@ int main(void)
 	mount("none", "/dev", "devtmpfs", 0, "");
 	mount("none", "/sys", "sysfs", 0, "");
 	mount("none", "/sys/kernel/security", "securityfs", 0, "");
+	mount("none", "/tmp", "tmpfs", 0, "");
 
-	// we do not need stdin
-	close(0);
+	// this breaks things in /var, and we can't mount a separate /var
+	// since they might have pre-created directories in it.
+	//fprintf(stderr, "init: remounting root read only\n");
+	//mount("none", "/", "rootfs", MS_REMOUNT | MS_RDONLY, "");
 
 	int fd = open("/dev/console", O_RDWR);
 	if (fd >= 0)
 	{
+		dup2(fd, 0);
 		dup2(fd, 1);
 		dup2(fd, 2);
 	}
+
+	// if it wasn't one of the stdio fd's, close it now
+	if (fd > 2)
+		close(fd);
+
+	// set a shell prompt, just in case
+	setenv("PS1", "\\w# ", 1);
 
 	glob_t globbuf;
 	int rc = glob("/init.d/*", 0, NULL, &globbuf);
@@ -118,6 +131,9 @@ int main(void)
 	}
 
 	globfree(&globbuf);
+
+	// we do not need stdin, but our children might
+	close(0);
 
 	// now just reap children
 	while(1)
