@@ -216,12 +216,14 @@ def process_line(line):
 		cpio_mkdirs(words[1], mode)
 		return
 	if words[0] == "mknod":
+		# mknod path [c|b] major minor
 		cpio_add_dev(words[1], words[2], words[3], words[4])
 		return
 	if words[0] == "exec":
-		# command line stuff to be read by exec
+		# command line stuff to be read by init
+		# exec /init.d/10-module cmd [args...]
 		global init_counter
-		cpio_add_data("/init.d/S%02d" % (init_counter), words[1:])
+		cpio_add_data(words[1], words[2:])
 		init_counter += 1
 		return
 
