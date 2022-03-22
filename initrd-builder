@@ -28,6 +28,12 @@ def system(*args):
 	#print(sub.stderr, file=sys.stderr)
 	#return None
 	return sub
+def exists(f):
+	try:
+		os.stat(f)
+		return True
+	except Exception as e:
+		return False
 
 def align(data, b):
 	if len(data) % b != 0:
@@ -233,15 +239,29 @@ def process_line(line):
 	if len(words) > 1:
 		dest = words[1]
 
+	# - marks optional files; do not die if they do not exist
+	optional = False
+	if filename[0] == '-':
+		optional = True
+		filename = filename[1:]
+
+	# if a relative file name is provided, update it with the cwd
+	if filename[0] != '/':
+		filename = os.path.join(cwd, filename)
+
+	if optional and not exists(filename):
+		print(filename + ": skipping")
+		return
+
 	if filename.endswith('/'):
 		# recursive directory copy
-		olddir = os.path.join(cwd, filename)
+		olddir = os.path.normpath(filename)
+
 		print('walking', olddir)
 		for root, dirs, files in os.walk(olddir):
 			# strip the non-relative path part
 			# is there a better way to do this?
 			newroot = os.path.join(dest, os.path.relpath(root, start=olddir))
-			print('---', root, newroot)
 			cpio_mkdirs(newroot)
 			for f in files:
 				oldname = os.path.join(root, f)
@@ -256,10 +276,6 @@ def process_line(line):
 
 	# strip the local path
 	dest_filename = os.path.basename(filename)
-
-	# if a relative file name is provided, update it with the cwd
-	if not filename.startswith('/'):
-		filename = cwd + "/" + filename
 
 	cpio_add_file(filename, dest + "/" + dest_filename)
 
