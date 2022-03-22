@@ -9,41 +9,22 @@
  * unikernel images.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mount.h>
 #include <fcntl.h>
+#include <glob.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
-int main(void)
+static int forkit(const char * filename)
 {
-	fprintf(stderr, "init: creating directories\n");
-	mkdir("/root", 0755);
-	mkdir("/proc", 0755);
-	mkdir("/sys", 0755);
-	mkdir("/tmp", 0755);
-	mkdir("/dev", 0755);
-	mkdir("/run", 0755);
-	mkdir("/var", 0755);
-
-	fprintf(stderr, "init: mounting filesystems\n");
-	mount("none", "/proc", "proc", 0, "");
-	mount("none", "/dev", "devtmpfs", 0, "");
-	mount("none", "/sys", "sysfs", 0, "");
-	mount("none", "/sys/kernel/security", "securityfs", 0, "");
-
-	int fd = open("/dev/console", O_RDWR);
-	if (fd >= 0)
-	{
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-	}
-
-	fd = open("/args", O_RDONLY);
+	int fd = open(filename, O_RDONLY);
 	if (fd < 0)
 	{
-		fprintf(stderr, "/args not found; not sure what to do!\n");
+		fprintf(stderr, "%s not found; not sure what to do!\n", filename);
 		return -1;
 	}
 
@@ -52,7 +33,7 @@ int main(void)
 	//fprintf(stderr, "init: read %zu bytes\n", len);
 	if (len < 0)
 	{
-		perror("/args");
+		perror(filename);
 		return -1;
 	}
 
@@ -61,7 +42,7 @@ int main(void)
 
 	argv[argc++] = args;
 
-	fprintf(stderr, "init: execv('%s'", argv[0]);
+	fprintf(stderr, "%s: execv('%s'", filename, argv[0]);
 
 	// stop before the end of the argument data
 	for(int offset = 0 ; offset < len-1 ; offset++)
@@ -80,8 +61,69 @@ int main(void)
 	fprintf(stderr, ")\n");
 
 	// invoke it and hope for the best!
-	execv(argv[0], argv);
+	int pid = vfork();
+	if (pid == 0)
+	{
+		execv(argv[0], argv);
+		exit(-1);
+	}
 
-	printf("EXEC FAILED. We're toast\n");
-	return -1;
+	return 0;
+}
+
+int main(void)
+{
+	// these should already exist, but just in case
+	fprintf(stderr, "init: creating directories\n");
+	mkdir("/root", 0755);
+	mkdir("/proc", 0755);
+	mkdir("/sys", 0755);
+	mkdir("/tmp", 0755);
+	mkdir("/dev", 0755);
+	mkdir("/run", 0755);
+	mkdir("/var", 0755);
+
+	fprintf(stderr, "init: mounting filesystems\n");
+	mount("none", "/proc", "proc", 0, "");
+	mount("none", "/dev", "devtmpfs", 0, "");
+	mount("none", "/sys", "sysfs", 0, "");
+	mount("none", "/sys/kernel/security", "securityfs", 0, "");
+
+	// we do not need stdin
+	close(0);
+
+	int fd = open("/dev/console", O_RDWR);
+	if (fd >= 0)
+	{
+		dup2(fd, 1);
+		dup2(fd, 2);
+	}
+
+	glob_t globbuf;
+	int rc = glob("/init.d/*", 0, NULL, &globbuf);
+	const int matches = globbuf.gl_pathc;
+	if (rc != 0 || matches == 0)
+	{
+		fprintf(stderr, "init: no programs to run? we're done here\n");
+		return -1;
+	}
+
+	fprintf(stderr, "init: %d startup items found\n", matches);
+	for(int i = 0 ; i < matches ; i++)
+	{
+		if (forkit(globbuf.gl_pathv[i]) == 0)
+			continue;
+		fprintf(stderr, "init: failed! we're done here\n");
+		return -1;
+	}
+
+	globfree(&globbuf);
+
+	// now just reap children
+	while(1)
+	{
+		int status;
+		pid_t pid = wait(&status);
+		fprintf(stderr, "init: pid %d exited status %08x\n", (int) pid, status);
+	}
 }
