@@ -81,7 +81,16 @@ gcc_cross_tools = [x.upper() + "_FOR_TARGET=" + cross + x
 	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
 cross_tools = [x.upper() + "=" + cross + x
 	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
-cross_tools_cc = ["CC=" + cross + "gcc", *cross_tools]
+cross_tools_cc = [
+	"CC=%(musl.out_dir)s/install/bin/musl-gcc", #" + cross + "gcc",
+	"CFLAGS="
+		"-I%(linux.out_dir)s/usr/include",
+#		" -I%(musl.out_dir)s/install/include"
+#		" -B%(musl.out_dir)s/install/lib",
+#	"LDFLAGS="
+#		"-B%(musl.out_dir)s/install/lib",
+	*cross_tools,
+]
 
 # this fakes the install into the binutils directory to avoid issues later
 crossgcc = builder.Submodule("gcc",
@@ -139,7 +148,7 @@ linux = builder.Submodule("linux",
 		"O=%(rout_dir)s",
 		"olddefconfig"
 	],
-	depends = [ binutils ],
+	#depends = [ binutils ], # should it use the cross compiler?
 	make = [ 
 		builder.kbuild_make,
 		[ "make", "headers_install" ],
@@ -159,16 +168,19 @@ musl = builder.Submodule("musl",
 		"DESTDIR=%(out_dir)s/install",
 		"--prefix=%(out_dir)s/install",
 		"--syslibdir=%(out_dir)s/install/lib",
-		"--disable-gcc-wrapper",
+		"--enable-wrapper=gcc",
+		#"--disable-gcc-wrapper",
 		"--target=" + target_arch,
 		#"--includedir=%(linux.out_dir)s/usr/include",
 	],
-	depends = [ linux, gcc, binutils ],
+	depends = [ linux, gcc ],
 	patches = [ "patches/musl-0000-fastmath.patch" ],
 	make = [ "make", "install", ],
 	#extra_path = "%(binutils.out_dir)s/install/bin",
 )
 
+# pick up in the cross gcc target once musl has been built so that
+# libgcc can use the musl headers to build.
 libgcc = builder.Submodule("libgcc",
 	parent = crossgcc,
 	depends = [ crossgcc, musl ],
@@ -186,7 +198,7 @@ libgcc = builder.Submodule("libgcc",
 
 
 busybox = builder.Submodule("busybox",
-	depends = [ musl, binutils, libgcc, linux ],
+	depends = [ musl, linux ],
 	url = "https://busybox.net/downloads/busybox-%(version)s.tar.bz2",
 	version = "1.32.0",
 	tarhash = "c35d87f1d04b2b153d33c275c2632e40d388a88f19a9e71727e0bbbff51fe689",
@@ -204,10 +216,6 @@ busybox = builder.Submodule("busybox",
 		"V=1",
 		#"CC=gcc -specs=%(musl.out_dir)s/install/lib/musl-gcc.specs",
 		*cross_tools_cc,
-		"CFLAGS="
-		" -I%(linux.out_dir)s/usr/include"
-		" -I%(musl.out_dir)s/install/include"
-		" -B%(musl.out_dir)s/install/lib",
 	],
 )
 
@@ -215,11 +223,13 @@ util_linux = builder.Submodule("util-linux",
 	version		= "2.29.2",
 	url		= "https://www.kernel.org/pub/linux/utils/util-linux/v%(major)s.%(minor)s/util-linux-%(version)s.tar.xz",
 	tarhash		= "accea4d678209f97f634f40a93b7e9fcad5915d1f4749f6c47bee6bf110fe8e3",
-	depends		= [ linux ],
+	depends		= [ linux, libgcc ],
 	configure	= [
 		builder.configure,
+		"--target", target_arch,
+		"--host", 'x86_64-linux-gnu',
 		"--prefix=%(out_dir)s/install",
-		"--oldincludedir", "%(linux.out_dir)s/include",
+		#"--oldincludedir", "%(linux.out_dir)s/include",
 		"--without-ncurses",
 		"--without-ncursesw",
 		"--without-tinfo",
@@ -229,17 +239,20 @@ util_linux = builder.Submodule("util-linux",
 		"--disable-all-programs",
 		"--enable-libuuid",
 		"--enable-libblkid",
+		*cross_tools_cc,
 	],
-	make = [ "make" ],
+	make = [ "make", "install", "V=1" ],
 )
 
 zlib = builder.Submodule('zlib',
+	depends = [ musl ],
 	version = '1.2.11',
 	url = 'https://www.zlib.net/zlib-%(version)s.tar.gz',
 	tarhash = 'c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1',
 	configure = [
 		builder.configure,
 		"--prefix=%(out_dir)s/install",
+		*cross_tools_cc,
 	],
 	make = [ "make" ],
 )
@@ -249,17 +262,20 @@ kexec = builder.Submodule('kexec',
 	version = '2.0.20',
 	url = 'https://kernel.org/pub/linux/utils/kernel/kexec/kexec-tools-%(version)s.tar.gz',
 	tarhash = 'cb16d79818e0c9de3bb3e33ede5677c34a1d28c646379c7ab44e0faa3eb57a16',
-	patches = [ "patches/kexec-2.0.20.patch" ],
+	patches = [ "patches/kexec-2.0.20.patch", "patches/kexec-duplicate-symbols.patch" ],
 	configure = [
 		builder.configure,
-		"--host", "i386-elf-linux",
-		"--target", "x86_64",
+		"--host", 'x86_64-linux-gnu', #'i386-elf-linux',
+		"--target", 'x86_64',
 		"--prefix=%(out_dir)s/install",
+		"--without-lzma",
+		*cross_tools_cc,
 	],
-	depends = [ zlib ],
+	depends = [ musl ],
 )
 #kexec_output := build/sbin/kexec
 
 #build = builder.Builder([kexec, util_linux, linux, busybox])
-build = builder.Builder([busybox])
+#build = builder.Builder([busybox, kexec, util_linux])
+build = builder.Builder([kexec, util_linux])
 build.build_all()

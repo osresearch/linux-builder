@@ -172,7 +172,11 @@ class Submodule:
 		self.update_dict()
 
 	def format(self, cmd):
- 		return cmd % self.dict
+		try:
+ 			return cmd % self.dict
+		except Exception as e:
+			print(self.name + ":", self.dict)
+			raise
 
 	def update_dict(self):
 		self.dict = {
@@ -188,10 +192,22 @@ class Submodule:
 			"rout_dir": self.rout_dir,
 		}
 
-		# recursively add the dependencies environments
-		for dep in self.depends:
+		self.update_dep_dict(self.depends)
+
+	# recursively add the dependency keys
+	def update_dep_dict(self,deps):
+		for dep in deps:
 			for key in dep.dict:
-				self.dict[dep.name + "." + key] = dep.dict[key]
+				if key.count('.') != 0:
+					continue
+				dep_key = dep.name + "." + key
+				if dep_key in self.dict:
+					# this dependency has been processed
+					#return
+					pass
+				self.dict[dep_key] = dep.dict[key]
+			# add of of this dependency's dependencies
+			self.update_dep_dict(dep.depends)
 
 	def get_url(self):
 		# semver the version string
@@ -386,8 +402,7 @@ class Builder:
 			#print(mod.name + ": DONE!", file=sys.stderr)
 		except Exception as e:
 			self.failed = True
-			print(mod.name + ": FAILED", file=sys.stderr)
-			traceback.print_exception(e)
+			print(mod.name + ": FAILED", traceback.format_exc(), file=sys.stderr)
 
 		self.builders -= 1
 
