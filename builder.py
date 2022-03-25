@@ -23,6 +23,10 @@ import sys
 import requests
 import hashlib
 import subprocess
+import traceback
+from tempfile import NamedTemporaryFile
+from threading import Thread
+from time import sleep
 
 verbose = 3
 build_dir = 'build'
@@ -81,14 +85,14 @@ def readfiles(names):
 		d.append(readfile(name))
 	return d
 
-class BuilderBase:
+class Submodule:
 	def __init__(self,
 		name,
 		url = None,
 		#git = None,
 		version = None,
 		tarhash = None,
-		patch_files = None,
+		patches = None,
 		config_files = None,
 		configure = None,
 		make = None,
@@ -102,7 +106,7 @@ class BuilderBase:
 		#self.git = git
 		self.version = version
 		self.tarhash = tarhash
-		self.patch_files = patch_files
+		self.patch_files = patches
 		self.config_files = config_files
 		self.configure_commands = configure
 		self.make_commands = make
@@ -308,6 +312,73 @@ class BuilderBase:
 		writefile(build_canary, b'')
 		self.built = True
 		return self
+
+
+
+class Builder:
+	def __init__(self, mods):
+		self.mods = mods
+		self.failed = False
+		self.builders = 0
+
+	def _build_thread(self, mod):
+		self.builders += 1
+
+		try:
+			#print(mod.name + ": building", file=sys.stderr)
+			mod.build()
+			#print(mod.name + ": DONE!", file=sys.stderr)
+		except Exception as e:
+			print(mod.name + ": FAILED", file=sys.stderr)
+			traceback.print_exception(e)
+			self.failed = True
+
+		self.builders -= 1
+
+	def build_all(self):
+		print("build_all(", [x.name for x in self.mods], ")")
+
+		while True:
+			if self.failed:
+				return False
+
+			if len(self.mods) == 0:
+				# no mods left, no builders? we're done!
+				if self.builders == 0:
+					return True
+
+				# no mods left, and builds are in process,
+				# wait for completions
+				sleep(0.1)
+				continue
+
+			mod = self.mods.pop(0)
+			if mod.built or mod.building:
+				# nothing for us to do
+				continue
+
+			ready = True
+			for dep in mod.depends:
+				if dep.built:
+					# we might be ready!
+					continue
+				elif dep.building:
+					# someone else is working on it, so we wait
+					ready = False
+				else:
+					# add this to the head of the mod list
+					self.mods.insert(0, dep)
+					ready = False
+
+			if not ready:
+				# put it back at the end the list for later
+				self.mods.append(mod)
+				sleep(0.1)
+				continue
+
+			# it is time to build this mod!
+			mod.building = True
+			Thread(target = self._build_thread, args=(mod,)).start()
 
 
 if __name__ == "__main__":

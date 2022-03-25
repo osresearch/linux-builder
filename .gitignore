@@ -22,3 +22,4 @@ ctags
 *.fd
 *.tar.gz
 init
+__pycache__

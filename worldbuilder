@@ -1,10 +1,6 @@
 #!/usr/bin/python3
 # build a small initd world
-from builder import BuilderBase
-from threading import Thread
-from time import sleep
-import sys
-import traceback
+import builder
 
 kbuild_make = [
 	"make",
@@ -18,7 +14,7 @@ kbuild_make = [
 
 build_dir = "/tmp/builder"
 
-linux = BuilderBase("linux",
+linux = builder.Submodule("linux",
 	url = "https://cdn.kernel.org/pub/linux/kernel/v%(major)s.x/linux-%(version)s.tar.xz",
 	version = "5.4.117",
 	tarhash = "4e989b5775830092e5c76b5cca65ebff862ad0c87d0b58c3a20d415c3d4ec770",
@@ -32,11 +28,12 @@ linux = BuilderBase("linux",
 	make = kbuild_make,
 )
 
-busybox = BuilderBase("busybox",
+busybox = builder.Submodule("busybox",
 	version = "1.32.0",
 	url = "https://busybox.net/downloads/busybox-%(version)s.tar.bz2",
 	tarhash = "c35d87f1d04b2b153d33c275c2632e40d388a88f19a9e71727e0bbbff51fe689",
 	config_files = [ "config/busybox.config" ],
+	patches = [ "patches/busybox-1.28.0.patch" ],
 	configure = [
 		"make",
 		"-C%(src_dir)s",
@@ -46,7 +43,7 @@ busybox = BuilderBase("busybox",
 	make = kbuild_make,
 )
 
-util_linux = BuilderBase("util-linux",
+util_linux = builder.Submodule("util-linux",
 	version		= "2.29.2",
 	url		= "https://www.kernel.org/pub/linux/utils/util-linux/v%(major)s.%(minor)s/util-linux-%(version)s.tar.xz",
 	tarhash		= "accea4d678209f97f634f40a93b7e9fcad5915d1f4749f6c47bee6bf110fe8e3",
@@ -58,8 +55,8 @@ util_linux = BuilderBase("util-linux",
 		"--without-ncurses",
 		"--without-ncursesw",
 		"--without-tinfo",
-		"--without-python",
 		"--without-udev",
+		"--without-python",
 		"--disable-bash-completion",
 		"--disable-all-programs",
 		"--enable-libuuid",
@@ -68,77 +65,32 @@ util_linux = BuilderBase("util-linux",
 	make = [ "make" ],
 )
 
-failed = False
-build_count = 0
+zlib = builder.Submodule('zlib',
+	version = '1.2.11',
+	url = 'https://www.zlib.net/zlib-%(version)s.tar.gz',
+	tarhash = 'c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1',
+	configure = [
+		"%(src_dir)s/configure",
+		"--prefix=/",
+	],
+	make = [ "make" ],
+)
+#zlib_libraries := libz.so.1
 
-def build_thread(mod):
-	global failed
-	global build_count
+kexec = builder.Submodule('kexec',
+	version = '2.0.20',
+	url = 'https://kernel.org/pub/linux/utils/kernel/kexec/kexec-tools-%(version)s.tar.gz',
+	tarhash = 'cb16d79818e0c9de3bb3e33ede5677c34a1d28c646379c7ab44e0faa3eb57a16',
+	patches = [ "patches/kexec-2.0.20.patch" ],
+	configure = [
+		"%(src_dir)s/configure",
+		"--host", "i386-elf-linux",
+		"--target", "x86_64",
+		"--prefix=/",
+	],
+	depends = [ zlib ],
+)
+#kexec_output := build/sbin/kexec
 
-	build_count += 1
-
-	try:
-		print(mod.name + ": building", file=sys.stderr)
-		mod.build()
-		print(mod.name + ": DONE!", file=sys.stderr)
-	except Exception as e:
-		print(mod.name + ": FAILED", file=sys.stderr)
-		traceback.print_exception(e)
-		failed = True
-
-	build_count -= 1
-
-# to build all, iterate over the list of buildable objects
-# that have all of their dependencies met
-def build_all(mods):
-	global failed
-	global build_count
-
-	print("build_all(", [x.name for x in mods], ")")
-
-	while len(mods) != 0 or build_count != 0:
-		if failed:
-			break
-
-		if len(mods) == 0:
-			# stuff is in process, wait for completions
-			sleep(0.1)
-			continue
-
-		mod = mods.pop(0)
-		#print(mod.name + " = pop(", [x.name for x in mods], ")")
-		if mod.built:
-			# someone else is already working on this one
-			#print(mod.name + ": already built")
-			continue
-		if mod.building:
-			# someone else is already working on this one
-			#print(mod.name + ": in process")
-			continue
-
-		ready = True
-		for dep in mod.depends:
-			if dep.built:
-				# we might be ready!
-				continue
-			elif dep.building:
-				# someone else is working on it, so we wait
-				#print(mod.name + ": wating on " + dep.name)
-				ready = False
-			else:
-				#print(mod.name + ": need to build " + dep.name + " first")
-				mods.insert(0, dep)
-				ready = False
-
-		if not ready:
-			# put it back on the list for later
-			#print(mod.name + ": not ready yet", mods)
-			mods.append(mod)
-			sleep(0.1)
-			continue
-
-		# it is time to build this mod
-		mod.building = True
-		Thread(target = build_thread, args=(mod,)).start()
-
-build_all([util_linux, linux, busybox])
+build = builder.Builder([kexec, util_linux, linux, busybox])
+build.build_all()
