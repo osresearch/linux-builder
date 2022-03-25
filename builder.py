@@ -37,6 +37,8 @@ def extend(h, data):
 	if h is None:
 		h = '0' * 64
 	for datum in data:
+		if type(datum) is str:
+			datum = datum.encode('utf-8')
 		h = sha256hex((h + sha256hex(datum)).encode('utf-8'))
 	return h
 
@@ -118,6 +120,9 @@ class BuilderBase:
 		self.src_dir = None
 		self.out_dir = None
 		self.rout_dir = None
+
+		self.built = False
+		self.building = False
 
 		if not self.patch_files:
 			self.patch_files = []
@@ -256,10 +261,13 @@ class BuilderBase:
 		if not self.patch():
 			return False
 
-		# first file is the default config,
-		# are the others are extra options to kconfig?
+		# the output hash depends on the source hash,
+		# the configure command, the make command
+		# and (TODO) the output hash of the direct dependencies
 		configs = readfiles(self.config_files)
-		self.out_hash = extend(self.src_hash, configs)
+		config_hash = extend(None, [x.encode('utf-8') for x in self.configure_commands])
+		make_hash = extend(None, [x.encode('utf-8') for x in self.make_commands])
+		self.out_hash = extend(self.src_hash, [*configs, config_hash, make_hash])
 		out_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
@@ -288,6 +296,7 @@ class BuilderBase:
 
 		build_canary = os.path.join(self.out_dir, ".built")
 		if exists(build_canary) and not force:
+			self.built = True
 			return self
 
 		cmds = []
@@ -297,73 +306,9 @@ class BuilderBase:
 		system(*cmds, cwd=self.out_dir)
 
 		writefile(build_canary, b'')
+		self.built = True
 		return self
 
 
 if __name__ == "__main__":
-	kbuild_make = [
-		"make",
-			"-C%(src_dir)s",
-			"O=%(rout_dir)s",
-			"KBUILD_HOST=builder",
-			"KBUILD_USER=%(out_hash)s",
-			"KBUILD_BUILD_TIMESTAMP=1970-01-01",
-			"KBUILD_BUILD_VERSION=%(src_hash)s",
-	]
-
-	build_dir = "/tmp/builder"
-
-	linux = BuilderBase("linux",
-		url = "https://cdn.kernel.org/pub/linux/kernel/v%(major)s.x/linux-%(version)s.tar.xz",
-		version = "5.4.117",
-		tarhash = "4e989b5775830092e5c76b5cca65ebff862ad0c87d0b58c3a20d415c3d4ec770",
-		config_files = [ "config/linux-virtio.config" ],
-		configure = [
-			"make",
-			"-C%(src_dir)s",
-			"O=%(rout_dir)s",
-			"olddefconfig"
-		],
-		make = kbuild_make,
-	)
-
-	busybox = BuilderBase("busybox",
-		version = "1.32.0",
-		url = "https://busybox.net/downloads/busybox-%(version)s.tar.bz2",
-		tarhash = "c35d87f1d04b2b153d33c275c2632e40d388a88f19a9e71727e0bbbff51fe689",
-		config_files = [ "config/busybox.config" ],
-		configure = [
-			"make",
-			"-C%(src_dir)s",
-			"O=%(rout_dir)s",
-			"oldconfig"
-		],
-		make = kbuild_make,
-	)
-
-	util_linux = BuilderBase("util-linux",
-		version		= "2.29.2",
-		url		= "https://www.kernel.org/pub/linux/utils/util-linux/v%(major)s.%(minor)s/util-linux-%(version)s.tar.xz",
-		tarhash		= "accea4d678209f97f634f40a93b7e9fcad5915d1f4749f6c47bee6bf110fe8e3",
-		depends		= [ linux ],
-		configure	= [
-			"%(src_dir)s/configure",
-			"--prefix", "/",
-			"--oldincludedir", "%(linux.out_dir)s/include",
-			"--without-ncurses",
-			"--without-ncursesw",
-			"--without-tinfo",
-			"--without-udev",
-			"--without-python",
-			"--disable-bash-completion",
-			"--disable-all-programs",
-			"--enable-libuuid",
-			"--enable-libblkid",
-		],
-		make = [ "make" ],
-	)
-
-
-	linux.build()
-	busybox.build()
-	util_linux.build()
+	pass
