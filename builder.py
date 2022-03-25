@@ -34,12 +34,28 @@ ftp_dir = os.path.join(build_dir, 'ftp')
 src_dir = os.path.join(build_dir, 'src')
 out_dir = os.path.join(build_dir, 'out')
 
+zero_hash = '0' * 64
+
+# some submodules use the same arguments
+kbuild_make = [
+	"make",
+		"-C%(src_dir)s",
+		"O=%(rout_dir)s",
+		"KBUILD_HOST=builder",
+		"KBUILD_USER=%(out_hash)s",
+		"KBUILD_BUILD_TIMESTAMP=1970-01-01",
+		"KBUILD_BUILD_VERSION=%(src_hash)s",
+]
+
+configure = "%(src_dir)s/configure"
+
+
 def sha256hex(data):
 	#print("hashing %d bytes" % (len(data)), data)
 	return hashlib.sha256(data).hexdigest()
 def extend(h, data):
 	if h is None:
-		h = '0' * 64
+		h = zero_hash
 	for datum in data:
 		if type(datum) is str:
 			datum = datum.encode('utf-8')
@@ -90,9 +106,11 @@ class Submodule:
 		name,
 		url = None,
 		#git = None,
+		parent = None,
 		version = None,
 		tarhash = None,
 		patches = None,
+		patch_dir = None,
 		config_files = None,
 		configure = None,
 		make = None,
@@ -104,6 +122,7 @@ class Submodule:
 		self.name = name
 		self.url = url
 		#self.git = git
+		self.parent = parent
 		self.version = version
 		self.tarhash = tarhash
 		self.patch_files = patches
@@ -116,8 +135,8 @@ class Submodule:
 		self.strip_components = 1
 		self.tar_options = []
 
-		self.src_hash = '0' * 64
-		self.out_hash = '0' * 64
+		self.src_hash = zero_hash
+		self.out_hash = zero_hash
 		self.major = None
 		self.minor = None
 		self.patchver = None
@@ -128,6 +147,9 @@ class Submodule:
 		self.built = False
 		self.building = False
 
+#		if patch_dir is not None:
+#			self.patch_files = glob(
+
 		if not self.patch_files:
 			self.patch_files = []
 		if not self.config_files:
@@ -137,10 +159,15 @@ class Submodule:
 
 		if not self.configure_commands:
 			self.configure_commands = [
-				"%(src_dir)s/configure"
+				configure,
 			]
 		if not self.make_commands:
 			self.make_commands = [ "make" ]
+
+		if self.parent:
+			# this is a continuation of the existing build
+			# so re-use some of its parameters
+			pass
 
 		self.update_dict()
 
@@ -150,6 +177,7 @@ class Submodule:
 	def update_dict(self):
 		self.dict = {
 			"version": self.version,
+			"name": self.name,
 			"major": self.major,
 			"minor": self.minor,
 			"patch": self.patchver,
@@ -270,7 +298,15 @@ class Submodule:
 		# and (TODO) the output hash of the direct dependencies
 		configs = readfiles(self.config_files)
 		config_hash = extend(None, [x.encode('utf-8') for x in self.configure_commands])
-		make_hash = extend(None, [x.encode('utf-8') for x in self.make_commands])
+
+		# ensure that there is a list of make commands
+		if type(self.make_commands[0]) == str:
+			self.make_commands = [ self.make_commands ]
+		make_hash = zero_hash
+		for commands in self.make_commands:
+			cmd_hash = extend(None, commands)
+			make_hash = extend(make_hash, cmd_hash)
+
 		self.out_hash = extend(self.src_hash, [*configs, config_hash, make_hash])
 		out_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
@@ -295,19 +331,37 @@ class Submodule:
 		return self
 
 	def build(self, force=False):
-		if not self.configure():
+		if self.parent:
+			# this is a child task; depdencies should prevent this case
+			if not self.parent.built:
+				print(self.name + ": parent not already built?", file=sys.stderr)
+				return False
+			# copy the parent parameters
+			self.out_dir = self.parent.out_dir
+			self.src_hash = self.parent.src_hash
+			self.src_dir = self.parent.src_dir
+			self.out_hash = self.parent.out_hash
+			self.rout_dir = self.parent.rout_dir
+			self.version = self.parent.version
+			self.major = self.parent.major
+			self.minor = self.parent.minor
+			self.patchver = self.parent.patchver
+			self.depends = [ *self.depends, *self.parent.depends ]
+			self.update_dict()
+		elif not self.configure():
 			return False
 
-		build_canary = os.path.join(self.out_dir, ".built")
+		build_canary = os.path.join(self.out_dir, ".built-" + self.name)
 		if exists(build_canary) and not force:
 			self.built = True
 			return self
 
-		cmds = []
-		for cmd in self.make_commands:
-			cmds.append(self.format(cmd))
+		for commands in self.make_commands:
+			cmds = []
+			for cmd in commands:
+				cmds.append(self.format(cmd))
 
-		system(*cmds, cwd=self.out_dir)
+			system(*cmds, cwd=self.out_dir)
 
 		writefile(build_canary, b'')
 		self.built = True
@@ -326,12 +380,14 @@ class Builder:
 
 		try:
 			#print(mod.name + ": building", file=sys.stderr)
-			mod.build()
+			if not mod.build():
+				print(mod.name + ": FAILED", file=sys.stderr)
+				self.failed = True
 			#print(mod.name + ": DONE!", file=sys.stderr)
 		except Exception as e:
+			self.failed = True
 			print(mod.name + ": FAILED", file=sys.stderr)
 			traceback.print_exception(e)
-			self.failed = True
 
 		self.builders -= 1
 
@@ -340,6 +396,7 @@ class Builder:
 
 		while True:
 			if self.failed:
+				print("build_all failed", file=sys.stderr)
 				return False
 
 			if len(self.mods) == 0:

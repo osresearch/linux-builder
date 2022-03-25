@@ -1,0 +1,13 @@
+diff -u --recursive ../../clean/musl-1.2.2/configure musl-1.2.2/configure
+--- ../../clean/musl-1.2.2/configure	2021-01-15 02:26:00.000000000 +0000
++++ musl-1.2.2/configure	2022-03-25 16:39:28.415422944 +0000
+@@ -758,7 +758,7 @@
+ #
+ if trycppif "__FAST_MATH__" \
+   "$CFLAGS_C99FSE $CPPFLAGS $CFLAGS" ; then
+-fail "$0: error: compiler has broken floating point; check CFLAGS"
++echo "$0: error: compiler has broken floating point; check CFLAGS"
+ fi
+ 
+ printf "creating config.mak... "
+

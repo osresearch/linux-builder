@@ -1,18 +1,132 @@
 #!/usr/bin/python3
 # build a small initd world
 import builder
-
-kbuild_make = [
-	"make",
-		"-C%(src_dir)s",
-		"O=%(rout_dir)s",
-		"KBUILD_HOST=builder",
-		"KBUILD_USER=%(out_hash)s",
-		"KBUILD_BUILD_TIMESTAMP=1970-01-01",
-		"KBUILD_BUILD_VERSION=%(src_hash)s",
-]
+from copy import deepcopy
 
 build_dir = "/tmp/builder"
+
+mpfr = builder.Submodule("mpfr",
+	version = "4.1.0",
+	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
+	tarhash = '0c98a3f1732ff6ca4ea690552079da9c597872d30e96ec28414ee23c95558a7f',
+	configure = [
+		builder.configure,
+		"--prefix", "%(out_dir)s/install",
+		"--enable-static=yes",
+		"--enable-shared=no",
+	],
+	make = [ "make", "install" ],
+)
+gmp = builder.Submodule("gmp",
+	version = "6.2.1",
+	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
+	tarhash = 'fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2',
+	configure = [
+		builder.configure,
+		"--prefix", "%(out_dir)s/install",
+		"--enable-static=yes",
+		"--enable-shared=no",
+	],
+	make = [ "make", "install" ],
+)
+
+mpc = builder.Submodule("mpc",
+	version = "1.2.1",
+	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.gz",
+	tarhash = '17503d2c395dfcf106b622dc142683c1199431d095367c6aacba6eec30340459',
+	configure = [
+		builder.configure,
+		"--prefix=%(out_dir)s/install",
+		"--with-mpfr=%(mpfr.out_dir)s/install",
+		"--with-gmp=%(gmp.out_dir)s/install",
+		"--enable-static=yes",
+		"--enable-shared=no",
+	],
+	depends = [ mpfr, gmp ],
+	make = [ "make", "install" ],
+)
+
+binutils = builder.Submodule("binutils",
+	version = "2.38",
+	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
+	tarhash = 'e316477a914f567eccc34d5d29785b8b0f5a10208d36bbacedcc39048ecfe024',
+	configure = [
+		builder.configure,
+		"--with-mpc=%(mpc.out_dir)s/install",
+		"--prefix=%(out_dir)s/install",
+		"--target=x86_64-linux-musl",
+		"--disable-nls",
+	],
+	depends = [ mpc ],
+	make = [
+		[ "make" ],
+		[ "make", "install" ],
+	],
+)
+
+bison = builder.Submodule("bison",
+	version = "3.8.2",
+	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
+	tarhash = '9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2',
+	configure = [
+		builder.configure,
+		"--prefix=%(out_dir)s/install",
+	],
+	make = [ "make", "install" ],
+)
+
+target_arch = "x86_64-linux-musl"
+cross = "%(binutils.out_dir)s/install/bin/" + target_arch + "-"
+gcc_cross_tools = [x.upper() + "_FOR_TARGET=" + cross + x
+	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
+cross_tools = [x.upper() + "=" + cross + x
+	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
+cross_tools_cc = ["CC=" + cross + "gcc", *cross_tools]
+
+# this fakes the install into the binutils directory to avoid issues later
+crossgcc = builder.Submodule("gcc",
+	url = "https://ftp.gnu.org/gnu/gcc/gcc-%(version)s/%(name)s-%(version)s.tar.xz",
+	#version = "9.4.0",
+	#tarhash = 'd08edc536b54c372a1010ff6619dd274c0f1603aa49212ba20f7aa2cda36fa8b',
+	version = "11.2.0",
+	tarhash = 'c95da32f440378d7751dd95533186f7fc05ceb4fb65eb5b85234e6299eb9838e',
+	configure = [
+		builder.configure,
+		"--with-mpc=%(mpc.out_dir)s/install",
+		"--with-gmp=%(gmp.out_dir)s/install",
+		"--with-mpfr=%(mpfr.out_dir)s/install",
+		"--prefix=%(binutils.out_dir)s/install", # note output!
+		#"--build", "x86_64-linux-gnu",
+		#"--host", "x86_64-linux-gnu",
+		"--target", target_arch,
+		"--enable-languages=c",
+		"--without-headers",
+		"--with-newlib",
+		"--with-build-time-tools=%(binutils.out_dir)s/install/bin",
+		"--disable-nls",
+		"--disable-plugin",
+		"--disable-lto",
+		"--disable-multilib",
+		"--disable-decimal-float",
+		"--disable-libmudflap",
+		"--disable-libssp",
+		"--disable-libgomp",
+		"--disable-libquadmath",
+		*cross_tools,
+	],
+	depends = [ binutils, mpc, mpfr, gmp ],
+	make = [
+		[ "make", "all-gcc" ], 
+		[ "make", "install-gcc" ],
+	],
+)
+
+localgcc = builder.Submodule("gcc",
+	#localfiles = True
+)
+
+# select the cross compiler
+gcc = crossgcc
 
 linux = builder.Submodule("linux",
 	url = "https://cdn.kernel.org/pub/linux/kernel/v%(major)s.x/linux-%(version)s.tar.xz",
@@ -25,22 +139,76 @@ linux = builder.Submodule("linux",
 		"O=%(rout_dir)s",
 		"olddefconfig"
 	],
-	make = kbuild_make,
+	depends = [ binutils ],
+	make = [ 
+		builder.kbuild_make,
+		[ "make", "headers_install" ],
+	]
 )
 
+musl = builder.Submodule("musl",
+	version = "1.2.2",
+	url = "https://musl.libc.org/releases/%(name)s-%(version)s.tar.gz",
+	tarhash = '9b969322012d796dc23dda27a35866034fa67d8fb67e0e2c45c913c3d43219dd',
+	configure = [
+		builder.configure,
+		"CC=" + cross + "gcc",
+		*cross_tools,
+		#"CROSS="+cross,
+		"CFLAGS=-ffast-math -O3", # avoid libgcc circular math dependency
+		"DESTDIR=%(out_dir)s/install",
+		"--prefix=%(out_dir)s/install",
+		"--syslibdir=%(out_dir)s/install/lib",
+		"--disable-gcc-wrapper",
+		"--target=" + target_arch,
+		#"--includedir=%(linux.out_dir)s/usr/include",
+	],
+	depends = [ linux, gcc, binutils ],
+	patches = [ "patches/musl-0000-fastmath.patch" ],
+	make = [ "make", "install", ],
+	#extra_path = "%(binutils.out_dir)s/install/bin",
+)
+
+libgcc = builder.Submodule("libgcc",
+	parent = crossgcc,
+	depends = [ crossgcc, musl ],
+	make = [
+		[ "make",
+			"all-target-libgcc",
+			"CFLAGS_FOR_TARGET=-I%(musl.out_dir)s/install/include -v -B%(musl.out_dir)s/install/lib",
+			#"GCC_EXEC_PREFIX=%(musl.out_dir)s/install/lib",
+			*gcc_cross_tools,
+			*cross_tools,
+		 ], 
+		[ "make", "install-target-libgcc" ],
+	],
+)
+
+
 busybox = builder.Submodule("busybox",
-	version = "1.32.0",
+	depends = [ musl, binutils, libgcc, linux ],
 	url = "https://busybox.net/downloads/busybox-%(version)s.tar.bz2",
+	version = "1.32.0",
 	tarhash = "c35d87f1d04b2b153d33c275c2632e40d388a88f19a9e71727e0bbbff51fe689",
 	config_files = [ "config/busybox.config" ],
-	patches = [ "patches/busybox-1.28.0.patch" ],
+	#patches = [ "patches/busybox-1.28.0.patch" ],
 	configure = [
 		"make",
 		"-C%(src_dir)s",
 		"O=%(rout_dir)s",
-		"oldconfig"
+		"oldconfig",
+		*cross_tools_cc,
 	],
-	make = kbuild_make,
+	make = [
+		*builder.kbuild_make,
+		"V=1",
+		#"CC=gcc -specs=%(musl.out_dir)s/install/lib/musl-gcc.specs",
+		*cross_tools_cc,
+		"CFLAGS="
+		" -I%(linux.out_dir)s/usr/include"
+		" -I%(musl.out_dir)s/install/include"
+		" -B%(musl.out_dir)s/install/lib",
+	],
 )
 
 util_linux = builder.Submodule("util-linux",
@@ -49,8 +217,8 @@ util_linux = builder.Submodule("util-linux",
 	tarhash		= "accea4d678209f97f634f40a93b7e9fcad5915d1f4749f6c47bee6bf110fe8e3",
 	depends		= [ linux ],
 	configure	= [
-		"%(src_dir)s/configure",
-		"--prefix", "/",
+		builder.configure,
+		"--prefix=%(out_dir)s/install",
 		"--oldincludedir", "%(linux.out_dir)s/include",
 		"--without-ncurses",
 		"--without-ncursesw",
@@ -70,8 +238,8 @@ zlib = builder.Submodule('zlib',
 	url = 'https://www.zlib.net/zlib-%(version)s.tar.gz',
 	tarhash = 'c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1',
 	configure = [
-		"%(src_dir)s/configure",
-		"--prefix=/",
+		builder.configure,
+		"--prefix=%(out_dir)s/install",
 	],
 	make = [ "make" ],
 )
@@ -83,14 +251,15 @@ kexec = builder.Submodule('kexec',
 	tarhash = 'cb16d79818e0c9de3bb3e33ede5677c34a1d28c646379c7ab44e0faa3eb57a16',
 	patches = [ "patches/kexec-2.0.20.patch" ],
 	configure = [
-		"%(src_dir)s/configure",
+		builder.configure,
 		"--host", "i386-elf-linux",
 		"--target", "x86_64",
-		"--prefix=/",
+		"--prefix=%(out_dir)s/install",
 	],
 	depends = [ zlib ],
 )
 #kexec_output := build/sbin/kexec
 
-build = builder.Builder([kexec, util_linux, linux, busybox])
+#build = builder.Builder([kexec, util_linux, linux, busybox])
+build = builder.Builder([busybox])
 build.build_all()
