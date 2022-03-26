@@ -311,7 +311,6 @@ class Submodule:
 
 		# the output hash depends on the source hash,
 		# the configure command, the make command
-		# and (TODO) the output hash of the direct dependencies
 		configs = readfiles(self.config_files)
 		config_hash = extend(None, [x.encode('utf-8') for x in self.configure_commands])
 
@@ -324,6 +323,10 @@ class Submodule:
 			make_hash = extend(make_hash, cmd_hash)
 
 		self.out_hash = extend(self.src_hash, [*configs, config_hash, make_hash])
+		# and the output hash of the direct dependencies
+		for dep in self.depends:
+			self.out_hash = extend(self.out_hash, dep.out_hash)
+
 		out_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
