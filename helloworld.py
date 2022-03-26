@@ -270,11 +270,56 @@ kexec = worldbuilder.Submodule('kexec',
 	make = [ "make", "install" ],
 	bin_dir = 'sbin',
 )
+
+pciutils = worldbuilder.Submodule("pciutils",
+	depends = [ libgcc, linux ],
+	version = "3.5.4",
+	url = "https://www.kernel.org/pub/software/utils/%(name)s/%(name)s-%(version)s.tar.xz",
+	tarhash = "64293c6ab9318c40ef262b76d87bd9097531759752bac556e50979b1e63cfe66",
+	patches = [ "patches/pciutils-3.5.4.patch" ],
+
+	# the makefile writes in the source directory
+	dirty = True,
+
+	configure = [ "true" ],
+
+# IDSDIR must be set to a constant during the build,
+# but not during the install to make the libpci.so.3
+# reproducible.  Otherwise the build path will be embedded
+# in the library and executables.
+	make = [ [
+		"make",
+		"ZLIB=no",
+		"HWDB=no",
+		"LIBKMOD=no",
+		"SHARED=yes",
+		"IDSDIR=/",
+		"PREFIX=/",
+		*cross_tools_cc,
+		"CFLAGS=-fpic -I%(linux.out_dir)s/usr/include",
+		], [
+		"make",
+		#"ZLIB=no",
+		#"HWDB=no",
+		#"LIBKMOD=no",
+		#"SHARED=yes",
+		"PREFIX=/",
+		"DESTDIR=%(install_dir)s",
+		"install",
+		"install-lib",
+	] ],
+	bin_dir = "sbin",
+)
+
+#pciutils_output := lspci
+#pciutils_libraries := lib/libpci.so.3.5.4 ../../install/lib/libpci.so.3
+
+
 #kexec_output := build/sbin/kexec
 
 #build = worldbuilder.Builder([kexec, util_linux, linux, busybox])
 #build = builder.Builder([busybox, kexec, util_linux])
-build = worldbuilder.Builder([busybox, kexec, util_linux])
+build = worldbuilder.Builder([pciutils, busybox, kexec, util_linux])
 #build.check()
 if not build.build_all():
 	exit(-1)
@@ -290,6 +335,8 @@ cpio.mknod("/dev/console", "c", 5, 1)
 
 cpio.mkdir("/bin")
 cpio.add("/bin", os.path.join(kexec.bin_dir, "kexec"))
+
+cpio.add("/bin", os.path.join(pciutils.bin_dir, "lspci"))
 
 cpio.add("/bin", os.path.join(busybox.bin_dir, "busybox"))
 cpio.symlink("/bin/sh", "./busybox")
