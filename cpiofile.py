@@ -124,6 +124,8 @@ class CPIO:
 
 
 	def mkdir(self, dirname, mode = 0o777):
+		if dirname == '':
+			return
 		(dirname, isdir) = self.normalize(dirname)
 
 		path = ''
@@ -144,34 +146,34 @@ class CPIO:
 
 		if not path in self.files:
 			return False
-		return (self.files[path].mode & Mode.S_ISDIR) != 0
+		return (self.files[path].mode & MODE.S_ISDIR) != 0
 
-	def add(self,filename,data=None,mode=0o655):
+	def add(self,filename,src_filename=None, data=None,mode=0o655):
 		(filename,isdir) = self.normalize(filename)
 
-		if isdir or self.isdir(dst):
+		if isdir or self.isdir(filename):
 			# destination directory
-			fname = os.path.split(src)[1]
-			dst = os.path.join(dst, fname)
+			fname = os.path.split(src_filename)[1]
+			filename = os.path.join(filename, fname)
 
-		if dst in self.files:
-			print("%s -> %s: destination already exists!" % (src,dst), file=sys.stderr)
+		if filename in self.files:
+			print("%s -> %s: destination already exists!" % (src_filename,filename), file=sys.stderr)
 
 		# read in the data from the file if not provided
 		if data is None:
-			mode = os.stat(src).st_mode
-			with open(src, "rb") as datafile:
+			mode = os.stat(src_filename).st_mode
+			with open(src_filename, "rb") as datafile:
 				data = datafile.read()
 
 		# if the dest path does not already exist, be sure to make it
-		self.mkdir(os.path.split(dst)[0])
+		self.mkdir(os.path.split(filename)[0])
 
 		if self.verbose:
-			print("add %s -> %s (%d bytes)" % (src, dst, len(data)))
+			print("add %s -> %s (%d bytes)" % (src_filename, filename, len(data)))
 #		if depsfile:
 #			print("\t" + src + " \\", file=depsfile)
 
-		self.files[dst] = CPIOFile(dst, data, mode=mode)
+		self.files[filename] = CPIOFile(filename, data, mode=mode)
 
 	def mknod(self, filename, devtype, major, minor):
 		(filename,isdir) = self.normalize(filename)
