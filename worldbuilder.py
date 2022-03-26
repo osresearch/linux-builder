@@ -29,7 +29,7 @@ from threading import Thread
 from time import sleep
 from graphlib import TopologicalSorter  # requires python3.9
 
-verbose = 3
+verbose = 1
 build_dir = 'build'
 ftp_dir = os.path.join(build_dir, 'ftp')
 src_dir = os.path.join(build_dir, 'src')
@@ -273,7 +273,7 @@ class Submodule:
 			print(url + ": failed!", r.text, file=sys.stderr)
 			return False
 			
-		info(url + ": fetching")
+		info("FETCH " + self.name + ": fetching")
 		data = r.content
 
 		if self.tarhash is not None:
@@ -282,7 +282,7 @@ class Submodule:
 				print(tar + ": bad hash! " + data_hash, file=sys.stderr)
 				writefile(dest_tar + ".bad", data)
 				return False
-			info(tar + ": good hash")
+			#info(tar + ": good hash")
 
 		writefile(dest_tar, data)
 		self.fetched = True
@@ -354,7 +354,7 @@ class Submodule:
 			return self
 
 		for (patch_file,patch) in zip(self.patch_files, self.patches):
-			info(self.src_dir + ": patching " + patch_file)
+			info("PATCH " + self.src_dir + ": " + patch_file)
 
 			with NamedTemporaryFile() as tmp:
 				tmp.write(patch)
@@ -427,6 +427,7 @@ class Submodule:
 		for cmd in self.configure_commands:
 			cmds.append(self.format(cmd))
 
+		info("CONFIG " + self.name)
 		system(*cmds, cwd=self.out_dir, log=os.path.join(self.out_dir, "configure-log"))
 
 		writefile(config_canary, b'')
