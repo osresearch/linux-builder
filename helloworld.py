@@ -128,6 +128,7 @@ crossgcc = worldbuilder.Submodule("gcc",
 gcc = crossgcc
 
 linux = worldbuilder.Submodule("linux",
+	depends = [ gcc ],
 	url = "https://cdn.kernel.org/pub/linux/kernel/v%(major)s.x/linux-%(version)s.tar.xz",
 	version = "5.4.117",
 	tarhash = "4e989b5775830092e5c76b5cca65ebff862ad0c87d0b58c3a20d415c3d4ec770",
@@ -136,7 +137,9 @@ linux = worldbuilder.Submodule("linux",
 		"make",
 		"-C%(src_dir)s",
 		"O=%(rout_dir)s",
-		"olddefconfig"
+		"olddefconfig",
+		*cross_tools,
+		"CC=" + cross + "gcc",
 	],
 	#depends = [ binutils ], # should it use the cross compiler?
 	make = [ 
