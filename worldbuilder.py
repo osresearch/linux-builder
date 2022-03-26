@@ -47,7 +47,7 @@ kbuild_make = [
 		"KBUILD_BUILD_VERSION=%(src_hash)s",
 ]
 
-configure = "%(src_dir)s/configure"
+configure_cmd = "%(src_dir)s/configure"
 
 
 def sha256hex(data):
@@ -62,15 +62,24 @@ def extend(h, data):
 		h = sha256hex((h + sha256hex(datum)).encode('utf-8'))
 	return h
 
-def system(*s, cwd=None):
+def system(*s, cwd=None, log=None):
 	if not cwd:
 		cwd = '.'
 	if verbose > 2:
-		print(s, 'cwd='+cwd)
+		print(cwd, s)
+
+	if log:
+		logfile = open(log, "w+")
+	else:
+		logfile = None
+
 	# do not close file descriptors, which will allow
 	# communication from sub-make invocations to the make
 	# that invoked us
-	subprocess.run(s, cwd=cwd, check=True, close_fds=False)
+	subprocess.run(s, cwd=cwd, check=True, close_fds=False, stdout=logfile, stderr=logfile)
+	if logfile:
+		logfile.close()
+
 def die(*s):
 	print(*s, file=sys.stderr)
 	exit(1)
@@ -115,6 +124,9 @@ class Submodule:
 		configure = None,
 		make = None,
 		depends = None,
+		lib_dir = None,
+		bin_dir = None,
+		inc_dir = None,
 	):
 		#if not url and not git:
 			#raise RuntimeError("url or git must be specified")
@@ -125,11 +137,15 @@ class Submodule:
 		self.parent = parent
 		self.version = version
 		self.tarhash = tarhash
-		self.patch_files = patches
-		self.config_files = config_files
-		self.configure_commands = configure
-		self.make_commands = make
-		self.depends = depends
+		self.patch_files = patches or []
+		self.config_files = config_files or []
+		self.configure_commands = configure or [ configure_cmd ]
+		self.make_commands = make or [ "make" ]
+		self.depends = depends or []
+		self.bin_dir = bin_dir or "bin"
+		self.lib_dir = lib_dir or "lib"
+		self.inc_dir = inc_dir or "include"
+		self.install_dir = "install"
 
 		self.patch_level = 1
 		self.strip_components = 1
@@ -141,7 +157,7 @@ class Submodule:
 		self.minor = None
 		self.patchver = None
 		self.src_dir = None
-		self.out_dir = None
+		self.out_dir = "/UNINITIALIZED"
 		self.rout_dir = None
 
 		self.built = False
@@ -149,20 +165,6 @@ class Submodule:
 
 #		if patch_dir is not None:
 #			self.patch_files = glob(
-
-		if not self.patch_files:
-			self.patch_files = []
-		if not self.config_files:
-			self.config_files = []
-		if not self.depends:
-			self.depends = []
-
-		if not self.configure_commands:
-			self.configure_commands = [
-				configure,
-			]
-		if not self.make_commands:
-			self.make_commands = [ "make" ]
 
 		if self.parent:
 			# this is a continuation of the existing build
@@ -190,6 +192,10 @@ class Submodule:
 			"src_dir": self.src_dir,
 			"out_dir": self.out_dir,
 			"rout_dir": self.rout_dir,
+			"install_dir": os.path.join(self.out_dir, self.install_dir),
+			"lib_dir": os.path.join(self.out_dir, self.install_dir, self.lib_dir),
+			"inc_dir": os.path.join(self.out_dir, self.install_dir, self.inc_dir),
+			"bin_dir": os.path.join(self.out_dir, self.install_dir, self.bin_dir),
 		}
 
 		self.update_dep_dict(self.depends)
@@ -331,6 +337,7 @@ class Submodule:
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
 		self.update_dict()
+		self.install_dir = os.path.join(self.out_dir, "install")
 		mkdir(self.out_dir)
 
 		config_canary = os.path.join(self.out_dir, ".configured")
@@ -344,7 +351,7 @@ class Submodule:
 		for cmd in self.configure_commands:
 			cmds.append(self.format(cmd))
 
-		system(*cmds, cwd=self.out_dir)
+		system(*cmds, cwd=self.out_dir, log=os.path.join(self.out_dir, "configure-log"))
 		writefile(config_canary, b'')
 
 		return self
@@ -380,7 +387,7 @@ class Submodule:
 			for cmd in commands:
 				cmds.append(self.format(cmd))
 
-			system(*cmds, cwd=self.out_dir)
+			system(*cmds, cwd=self.out_dir, log=os.path.join(self.out_dir, "make-log"))
 
 		writefile(build_canary, b'')
 		self.built = True
@@ -392,68 +399,105 @@ class Builder:
 	def __init__(self, mods):
 		self.mods = mods
 		self.failed = False
-		self.builders = 0
+		self.reset()
+
+	def reset(self):
+		self.waiting = {}
+		self.building = {}
+		self.built = {}
+		self.failed = {}
+
+	def report(self):
+		wait_list = ','.join(self.waiting)
+		building_list = ','.join(self.building)
+		built_list = ','.join(self.built)
+		failed_list = ','.join(self.failed)
+		print(
+			"building=[" + building_list
+			+ "] waiting=[" +  wait_list
+			+ "] done=[" + built_list 
+			+ "]"
+		)
+		if len(self.failed) > 0:
+			print("failed=" + failed_list, file=sys.stderr)
 
 	def _build_thread(self, mod):
-		self.builders += 1
+
+		del self.waiting[mod.name]
+		self.building[mod.name] = mod
+		self.report()
 
 		try:
-			#print(mod.name + ": building", file=sys.stderr)
-			if not mod.build():
+			if mod.build():
+				self.built[mod.name] = mod
+			else:
+				self.failed[mod.name] = mod
 				print(mod.name + ": FAILED", file=sys.stderr)
-				self.failed = True
-			#print(mod.name + ": DONE!", file=sys.stderr)
-		except Exception as e:
-			self.failed = True
-			print(mod.name + ": FAILED", traceback.format_exc(), file=sys.stderr)
 
-		self.builders -= 1
+		except Exception as e:
+			print(mod.name + ": FAILED. Logs are in", mod.out_dir, file=sys.stderr)
+			print(traceback.format_exc(), file=sys.stderr)
+			self.failed[mod.name] = mod
+
+		del self.building[mod.name]
+		#self.report()
 
 	def build_all(self):
-		print("build_all(", [x.name for x in self.mods], ")")
+		#print("build_all(", [x.name for x in self.mods], ")")
+		self.reset()
+
+		# copy the desired mods to the build list
+		for mod in self.mods:
+			self.waiting[mod.name] = mod
 
 		while True:
-			if self.failed:
+			if len(self.failed) != 0:
 				print("build_all failed", file=sys.stderr)
+				self.report()
 				return False
 
-			if len(self.mods) == 0:
+			if len(self.waiting) == 0:
 				# no mods left, no builders? we're done!
-				if self.builders == 0:
+				if len(self.building) == 0:
+					self.report()
 					return True
 
 				# no mods left, and builds are in process,
-				# wait for completions
+				# wait for completions. is there a better way?
 				sleep(0.1)
 				continue
 
-			mod = self.mods.pop(0)
-			if mod.built or mod.building:
-				# nothing for us to do
-				continue
+			for name in list(self.waiting):
+				mod = self.waiting[name]
+				ready = True
+				for dep in mod.depends:
+					if dep.name in self.built:
+						# we might be ready!
+						continue
+					elif dep.name in self.building:
+						# someone else is working on it, so we wait
+						ready = False
+					elif dep.name in self.waiting:
+						# already on the build list, let's wait
+						ready = False
+					else:
+						# add this to the head of the mod list
+						self.waiting[dep.name] = dep
+						ready = False
 
-			ready = True
-			for dep in mod.depends:
-				if dep.built:
-					# we might be ready!
+				if not ready:
+					# oh well, try the next one
 					continue
-				elif dep.building:
-					# someone else is working on it, so we wait
-					ready = False
-				else:
-					# add this to the head of the mod list
-					self.mods.insert(0, dep)
-					ready = False
 
-			if not ready:
-				# put it back at the end the list for later
-				self.mods.append(mod)
-				sleep(0.1)
-				continue
+				# it is time to build this mod!
+				mod.building = True
+				print(mod.name + ": starting build")
+				Thread(target = self._build_thread, args=(mod,)).start()
 
-			# it is time to build this mod!
-			mod.building = True
-			Thread(target = self._build_thread, args=(mod,)).start()
+			# processed the list of waiting ones sleep for a bit and
+			# try again in a little while
+			sleep(0.1)
+
 
 
 if __name__ == "__main__":
