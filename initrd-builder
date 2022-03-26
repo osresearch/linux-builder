@@ -4,12 +4,9 @@
 import sys
 import re
 import os
-from enum import IntEnum
-import subprocess
+import cpiofile
 import traceback
-import tempfile
 import argparse
-from tempfile import NamedTemporaryFile
 
 bindir = "bin"
 libdir = "lib64"
@@ -17,114 +14,36 @@ verbose = False
 cwd = '.'
 
 depsfile = None
+deps = ()
+cpio = cpiofile.CPIO()
 
 def die(s):
 	print(s, file=sys.stderr)
 	exit(1)
-def system(*args):
-	sub = subprocess.run(args, capture_output=True)
-	#if sub.returncode == 0:
-		#return sub.stdout
-	#print(sub.stderr, file=sys.stderr)
-	#return None
-	return sub
+
+def mode(filename):
+	try:
+		s = os.stat(filename)
+		return s.mode
+	except Exception as e:
+		return None
 def exists(f):
 	try:
 		os.stat(f)
 		return True
 	except Exception as e:
 		return False
+def readfile(filename):
+	with open(filename, "rb") as f:
+		return f.read()
 
-def align(data, b):
-	if len(data) % b != 0:
-		data += bytes(b - len(data) % b)
-	return data
-
-# mode includes
-class CPIO_MODE(IntEnum):
-	S_ISUID  = 0o4000   # Set uid
-	S_ISGID  = 0o2000   # Set gid
-	S_ISVTX  = 0o1000   # Save text (sticky bit)
-	S_ISDIR  = 0o40000  # Directory
-	S_ISFIFO = 0o10000  # FIFO
-	S_ISREG  = 0o100000 # Regular file
-	S_ISLNK  = 0o120000 # Symbolic link
-	S_ISBLK  = 0o60000  # Block special file
-	S_ISCHR  = 0o20000  # Character special file
-	S_ISSOCK = 0o140000 # Socket
-
-def cpio_hex(x):
-	return ("%08x" % (x)).encode('utf-8')
-
-# returns a blob formatted as a newc cpio entry
-#       Field name    Field size	 Meaning
-#       c_magic	      6 bytes		 The string "070701" or "070702"
-#       c_ino	      8 bytes		 File inode number (always 0)
-#       c_mode	      8 bytes		 File mode and permissions
-#       c_uid	      8 bytes		 File uid
-#       c_gid	      8 bytes		 File gid
-#       c_nlink	      8 bytes		 Number of links (always 0)
-#       c_mtime	      8 bytes		 Modification time (always 0)
-#       c_filesize    8 bytes		 Size of data field
-#       c_maj	      8 bytes		 Major part of file device number (always 0)
-#       c_min	      8 bytes		 Minor part of file device number (always 0)
-#       c_rmaj	      8 bytes		 Major part of device node reference
-#       c_rmin	      8 bytes		 Minor part of device node reference
-#       c_namesize    8 bytes		 Length of filename, including final \0
-#       c_chksum      8 bytes		 Checksum of data field if c_magic is 070702;
-				 #       otherwise zero
-# followed by namesize bytes of name (padded to be a multiple of 4)
-# followed dby filesize bytes of file (padded to be a multiple of 4)
-#
-
-def cpio_entry(filename, data, uid=0, gid=0, major=None, minor=None, mode=0o777):
-	# remove any duplicate / and strip the leading /
-	filename = re.sub(r'//*/', '/', filename)
-	filename = re.sub(r'^/*', '', filename)
-	name = filename.encode('utf-8') + b'\0'
-	name_len = len(name) # including nul terminator
-	data_len = len(data) # as is
-
-	# pad filename so that it ends up aligned on a
-	# four byte block. HOWEVER, it starts offset by 2,
-	# so there is some weirdness here.  note that the
-	# data is *NOT* padded here, since it will be
-	# aligned during the final write out
-	if (name_len+2) % 4 != 0:
-		name += bytes(4 - ((name_len+2) % 4))
-
-	# if major/minor are not set, then this is a regular file
-	if mode & (CPIO_MODE.S_ISDIR | CPIO_MODE.S_ISBLK | CPIO_MODE.S_ISCHR) == 0:
-		mode |= CPIO_MODE.S_ISREG
-	if major is None:
-		major = 0
-		minor = 0
-
-	f = b'' \
-		+ b'070701' \
-		+ b'00000000' \
-		+ cpio_hex(mode) \
-		+ cpio_hex(uid) \
-		+ cpio_hex(gid) \
-		+ b'00000000' \
-		+ b'00000000' \
-		+ cpio_hex(data_len) \
-		+ b'00000000' \
-		+ b'00000000' \
-		+ cpio_hex(major) \
-		+ cpio_hex(minor) \
-		+ cpio_hex(name_len) \
-		+ b'00000000' \
-		+ name \
-		+ data
-
-	dst_files[filename] = f
-	return f
-
-
-directories = {}
-src_files = {}
-dst_files = {}
+def deps_add(filename):
+	if not depsfile:
+		return
+	if filename in deps:
+		return
+	deps[filename] = 1
+	print("\t" + filename + " \\", file=depsfile)
 
 def cpio_mkdirs(dest, mode = 0o777):
 	# strip any leading / and normalize it
@@ -142,96 +61,27 @@ def cpio_mkdirs(dest, mode = 0o777):
 			continue
 		cpio_entry(path, b'', mode = mode | CPIO_MODE.S_ISDIR)
 
-
-def cpio_add_file(src,dst):
-	dst = os.path.normpath(dst)
-	if src in src_files:
-		return
-	if dst in dst_files:
-		print("%s -> %s: destination already exists!" % (src,dst), file=sys.stderr)
-
-	# read in the data from the file
-	mode = os.stat(src).st_mode
-	with open(src, "rb") as datafile:
-		data = datafile.read()
-
-	# if the dest path does not already exist, be sure to make it
-	cpio_mkdirs(os.path.split(dst)[0])
-
-	if verbose:
-		print("add %s -> %s (%d bytes)" % (src, dst, len(data)))
-	if depsfile:
-		print("\t" + src + " \\", file=depsfile)
-
-	cpio_entry(dst, data, mode = mode)
-	src_files[src] = f
-
-def cpio_add_dev(name, devtype, major, minor):
-	mode = 0o666
-	if devtype == 'b':
-		mode |= CPIO_MODE.S_ISBLK
-	elif devtype == 'c':
-		mode |= CPIO_MODE.S_ISCHR
-	else:
-		throw("bad dev type")
-
-	# if the dest path does not already exist, be sure to make it
-	cpio_mkdirs(os.path.split(name)[0])
-
-	major = int(major)
-	minor = int(minor)
-
-	if verbose:
-		print("mknod %s %s %d %d" % (name, devtype, major, minor))
-
-	cpio_entry(name, b'', mode = mode, major=major, minor=minor)
-
-def cpio_add_data(name, args):
-	if verbose:
-		print("exec", name, args)
-
-	# turn the args into nul separated arguments
-	data = b''
-	for arg in args:
-		data += arg.encode('utf-8') + b'\0'
-	cpio_entry(name, data)
-
-def cpio_add_symlink(name, dest):
-	if verbose:
-		print("symlink %s -> %s" % (name, dest))
-
-	cpio_mkdirs(os.path.split(name)[0])
-	cpio_entry(name, dest.encode('utf-8'), mode = 0o777 | CPIO_MODE.S_ISLNK)
-
-#deps = open(initrd_filename + ".deps", "w")
-#if not deps:
-#	die(initrd_file + ".deps: Unable to create dependency file")
-#print("# Autogenerated dependencies for " + initrd_filename, file=deps)
-
-uname = system("uname", "-r").stdout
-
-
 def process_line(line):
 	words = re.split(r'\s+', line)
 	if words[0] == "symlink":
 		# the filename is the second part, the data in that
 		# file is the path to the real file
-		cpio_add_symlink(words[2], words[1])
+		cpio.symlink(words[2], words[1])
 		return
 	if words[0] == "mkdir":
 		mode = 0o777
 		if len(words) > 2:
 			mode = int(words[2], 8)
-		cpio_mkdirs(words[1], mode)
+		cpio.mkdir(words[1], mode)
 		return
 	if words[0] == "mknod":
 		# mknod path [c|b] major minor
-		cpio_add_dev(words[1], words[2], words[3], words[4])
+		cpio.mknod(words[1], words[2], words[3], words[4])
 		return
 	if words[0] == "exec":
 		# command line stuff to be read by init
 		# exec /init.d/10-module cmd [args...]
-		cpio_add_data(words[1], words[2:])
+		cpio.add(words[1], data=words[2:])
 		return
 
 	# normal file
@@ -267,18 +117,17 @@ def process_line(line):
 			for f in files:
 				oldname = os.path.join(root, f)
 				newname = os.path.join(newroot, f)
-				cpio_add_file(oldname, newname)
+				cpio.add(newname, readfile(oldname))
+				deps_add(oldname)
 
 		# ldd is *not* done on recursive directories
 		return
 
-	# allow sort of variable substitution for the uname
-	filename = re.sub(r'\$UNAME', uname, filename)
-
 	# strip the local path
 	dest_filename = os.path.basename(filename)
 
-	cpio_add_file(filename, dest + "/" + dest_filename)
+	cpio.add(dest + "/" + dest_filename, readfile(filename), mode(filename))
+	deps_add(filename)
 
 	deps = system("ldd", filename)
 	if deps.returncode != 0:
@@ -297,7 +146,8 @@ def process_line(line):
 		
 		# strip the local path and put the library in the libdir
 		dest_lib = os.path.basename(lib)
-		cpio_add_file(lib, libdir + "/" + dest_lib)
+		cpio.add(libdir + "/" + dest_lib, readfile(lib))
+		deps_add(filename)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('files',
@@ -358,43 +208,8 @@ for filename in args.files:
 				exit(1)
 
 
-image = b''
-for dst in sorted(dst_files):
-	f = dst_files[dst]
-
-	# align before starting the next file
-	image = align(image, 4)
-
-	image += f
-
-# align before starting the trailer file
-image = align(image, 4)
-image += cpio_entry("TRAILER!!!", b'', mode=0)
-
-# pad to a full block size to make linux happy if
-# this is ever concatenated with another initrd
-image = align(image, 512)
-
-if args.xz or initrd_filename.endswith('.xz'):
-	# write to a temp file first
-	old_len = len(image)
-
-	with NamedTemporaryFile() as tmp:
-		tmp.write(image)
-		sub = system("xz",
-			"--check=crc32",
-			"--lzma2=dict=256KiB",
-			"--threads=0",
-			"--stdout",
-			tmp.name
-		)
-
-	# pad compressed data to a full block size to make linux
-	# happy if this is ever concatenated with another initrd
-	image = align(sub.stdout, 512)
-	print("%s: %d bytes (%d uncompressed)" % (initrd_filename, len(image), old_len), file=sys.stderr)
-else:
-	print("%s: %d bytes" % (initrd_filename, len(image)), file=sys.stderr)
+compressed = args.xz or initrd_filename.endswith('.xz')
+image = cpio.tobytes(compressed)
 
 if initrd_filename == '-':
 	sys.stdout.buffer.write(image)
