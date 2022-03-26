@@ -1,9 +1,8 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.9
 # build a small initd world
 import worldbuilder
-from copy import deepcopy
-
-build_dir = "/tmp/builder"
+import cpiofile
+import os
 
 mpfr = worldbuilder.Submodule("mpfr",
 	version = "4.1.0",
@@ -11,7 +10,7 @@ mpfr = worldbuilder.Submodule("mpfr",
 	tarhash = '0c98a3f1732ff6ca4ea690552079da9c597872d30e96ec28414ee23c95558a7f',
 	configure = [
 		worldbuilder.configure_cmd,
-		"--prefix", "%(install_dir)s",
+		"--prefix=%(install_dir)s",
 		"--enable-static=yes",
 		"--enable-shared=no",
 	],
@@ -23,7 +22,7 @@ gmp = worldbuilder.Submodule("gmp",
 	tarhash = 'fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2',
 	configure = [
 		worldbuilder.configure_cmd,
-		"--prefix", "%(install_dir)s",
+		"--prefix=%(install_dir)s",
 		"--enable-static=yes",
 		"--enable-shared=no",
 	],
@@ -52,9 +51,9 @@ binutils = worldbuilder.Submodule("binutils",
 	tarhash = 'e316477a914f567eccc34d5d29785b8b0f5a10208d36bbacedcc39048ecfe024',
 	configure = [
 		worldbuilder.configure_cmd,
-		"--with-mpc=%(mpc.install_dir)s",
 		"--prefix=%(install_dir)s",
 		"--target=x86_64-linux-musl",
+		"--with-mpc=%(mpc.install_dir)s",
 		"--disable-nls",
 	],
 	depends = [ mpc ],
@@ -96,10 +95,10 @@ crossgcc = worldbuilder.Submodule("gcc",
 	tarhash = 'c95da32f440378d7751dd95533186f7fc05ceb4fb65eb5b85234e6299eb9838e',
 	configure = [
 		worldbuilder.configure_cmd,
+		"--prefix=%(binutils.install_dir)s", # note output!
 		"--with-mpc=%(mpc.install_dir)s",
 		"--with-gmp=%(gmp.install_dir)s",
 		"--with-mpfr=%(mpfr.install_dir)s",
-		"--prefix=%(binutils.install_dir)s", # note output!
 		#"--build", "x86_64-linux-gnu",
 		#"--host", "x86_64-linux-gnu",
 		"--target", target_arch,
@@ -123,10 +122,6 @@ crossgcc = worldbuilder.Submodule("gcc",
 		[ "make", "all-gcc" ], 
 		[ "make", "install-gcc" ],
 	],
-)
-
-localgcc = worldbuilder.Submodule("gcc",
-	#localfiles = True
 )
 
 # select the cross compiler
@@ -156,17 +151,14 @@ musl = worldbuilder.Submodule("musl",
 	tarhash = '9b969322012d796dc23dda27a35866034fa67d8fb67e0e2c45c913c3d43219dd',
 	configure = [
 		worldbuilder.configure_cmd,
-		"CC=" + cross + "gcc",
-		*cross_tools,
-		#"CROSS="+cross,
-		"CFLAGS=-ffast-math -O3", # avoid libgcc circular math dependency
-		"DESTDIR=%(install_dir)s",
 		"--prefix=%(install_dir)s",
 		"--syslibdir=%(install_dir)s/lib",
+		"CFLAGS=-ffast-math -O3", # avoid libgcc circular math dependency
+		"DESTDIR=%(install_dir)s",
 		"--enable-wrapper=gcc",
-		#"--disable-gcc-wrapper",
 		"--target=" + target_arch,
-		#"--includedir=%(linux.out_dir)s/usr/include",
+		"CC=" + cross + "gcc",
+		*cross_tools,
 	],
 	depends = [ linux, gcc ],
 	patches = [ "patches/musl-0000-fastmath.patch" ],
@@ -175,25 +167,31 @@ musl = worldbuilder.Submodule("musl",
 )
 
 # pick up in the cross gcc target once musl has been built so that
-# libgcc can use the musl headers to build.
+# libgcc can use the musl headers to build. This is a fake package
+# with no source; it simply runs another command in the crossgcc tree
 libgcc = worldbuilder.Submodule("libgcc",
-	parent = crossgcc,
+	version = "0.0.0",
 	depends = [ crossgcc, musl ],
-	make = [
-		[ "make",
+	configure = [ "true" ],
+	make = [ [
+			"make",
+			"-C", "%(gcc.out_dir)s",
 			"all-target-libgcc",
+			#"install-target-libgcc",
 			"CFLAGS_FOR_TARGET=-I%(musl.install_dir)s/include -v -B%(musl.install_dir)s/lib",
-			#"GCC_EXEC_PREFIX=%(musl.install_dir)s/lib",
 			*gcc_cross_tools,
 			*cross_tools,
-		 ], 
-		[ "make", "install-target-libgcc" ],
+		], [
+			"make",
+			"-C", "%(gcc.out_dir)s",
+			"install-target-libgcc",
+		],
 	],
 )
 
 
 busybox = worldbuilder.Submodule("busybox",
-	depends = [ musl, linux ],
+	depends = [ libgcc, linux ],
 	url = "https://busybox.net/downloads/busybox-%(version)s.tar.bz2",
 	version = "1.32.0",
 	tarhash = "c35d87f1d04b2b153d33c275c2632e40d388a88f19a9e71727e0bbbff51fe689",
@@ -209,7 +207,7 @@ busybox = worldbuilder.Submodule("busybox",
 	make = [
 		*worldbuilder.kbuild_make,
 		"V=1",
-		#"CC=gcc -specs=%(musl.install_dir)s/lib/musl-gcc.specs",
+		"install",
 		*cross_tools_cc,
 	],
 )
@@ -221,10 +219,9 @@ util_linux = worldbuilder.Submodule("util-linux",
 	depends		= [ linux, libgcc ],
 	configure	= [
 		worldbuilder.configure_cmd,
+		"--prefix=%(install_dir)s",
 		"--target", target_arch,
 		"--host", 'x86_64-linux-gnu',
-		"--prefix=%(install_dir)s",
-		#"--oldincludedir", "%(linux.out_dir)s/include",
 		"--without-ncurses",
 		"--without-ncursesw",
 		"--without-tinfo",
@@ -261,19 +258,45 @@ kexec = worldbuilder.Submodule('kexec',
 		"patches/kexec-2.0.20.patch",
 		"patches/kexec-2.0.20-duplicate-symbols.patch",
 	],
+	depends = [ libgcc ],
 	configure = [
 		worldbuilder.configure_cmd,
+		"--prefix=%(install_dir)s",
 		"--host", 'x86_64-linux-gnu', #'i386-elf-linux',
 		"--target", 'x86_64',
-		"--prefix=%(install_dir)s",
 		"--without-lzma",
 		*cross_tools_cc,
 	],
-	depends = [ libgcc ],
+	make = [ "make", "install" ],
+	bin_dir = 'sbin',
 )
 #kexec_output := build/sbin/kexec
 
 #build = worldbuilder.Builder([kexec, util_linux, linux, busybox])
 #build = builder.Builder([busybox, kexec, util_linux])
-build = worldbuilder.Builder([kexec, util_linux])
-build.build_all()
+build = worldbuilder.Builder([busybox, kexec, util_linux])
+#build.check()
+if not build.build_all():
+	exit(-1)
+
+# make a ramdisk
+cpio = cpiofile.CPIO()
+
+cpio.mkdir("/lib64")
+cpio.mkdir("/lib")
+#cpio.symlink("/lib/x86_64-linux-gnu", "../lib64")
+
+cpio.mknod("/dev/console", "c", 5, 1)
+
+cpio.mkdir("/bin")
+cpio.add("/bin", os.path.join(kexec.bin_dir, "kexec"))
+
+cpio.add("/bin", os.path.join(busybox.bin_dir, "busybox"))
+cpio.symlink("/bin/sh", "./busybox")
+
+cpio.add("/lib", os.path.join(musl.lib_dir, "libc.so"))
+cpio.symlink("/lib/ld-musl-x86_64.so.1", "libc.so")
+
+image = cpio.tobytes()
+with open("image.cpio", "wb") as f:
+	f.write(image)

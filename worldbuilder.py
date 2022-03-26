@@ -27,6 +27,7 @@ import traceback
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep
+from graphlib import TopologicalSorter  # requires python3.9
 
 verbose = 3
 build_dir = 'build'
@@ -115,7 +116,6 @@ class Submodule:
 		name,
 		url = None,
 		#git = None,
-		parent = None,
 		version = None,
 		tarhash = None,
 		patches = None,
@@ -134,7 +134,6 @@ class Submodule:
 		self.name = name
 		self.url = url
 		#self.git = git
-		self.parent = parent
 		self.version = version
 		self.tarhash = tarhash
 		self.patch_files = patches or []
@@ -142,10 +141,10 @@ class Submodule:
 		self.configure_commands = configure or [ configure_cmd ]
 		self.make_commands = make or [ "make" ]
 		self.depends = depends or []
-		self.bin_dir = bin_dir or "bin"
-		self.lib_dir = lib_dir or "lib"
-		self.inc_dir = inc_dir or "include"
-		self.install_dir = "install"
+		self._bin_dir = bin_dir or "bin"
+		self._lib_dir = lib_dir or "lib"
+		self._inc_dir = inc_dir or "include"
+		self._install_dir = "install"
 
 		self.patch_level = 1
 		self.strip_components = 1
@@ -159,19 +158,36 @@ class Submodule:
 		self.src_dir = None
 		self.out_dir = "/UNINITIALIZED"
 		self.rout_dir = None
+		self.install_dir = None
+		self.bin_dir = None
+		self.lib_dir = None
+		self.inc_dir = None
 
+		self.fetched = False
+		self.unpacked = False
+		self.patched = False
+		self.configured = False
 		self.built = False
 		self.building = False
+
 
 #		if patch_dir is not None:
 #			self.patch_files = glob(
 
-		if self.parent:
-			# this is a continuation of the existing build
-			# so re-use some of its parameters
-			pass
-
 		self.update_dict()
+
+	def state(self):
+		if self.built:
+			return "BUILT"
+		if self.configured:
+			return "CONFIGURED"
+		if self.patched:
+			return "PATCHED"
+		if self.unpacked:
+			return "UNPACKED"
+		if self.fetched:
+			return "FETCHED"
+		return "NOSTATE"
 
 	def format(self, cmd):
 		try:
@@ -181,6 +197,14 @@ class Submodule:
 			raise
 
 	def update_dict(self):
+		# semver the version string
+		version = self.version.split('.') if self.version else ['0']
+		self.major = version[0]
+		if len(version) > 1:
+			self.minor = version[1]
+		if len(version) > 2:
+			self.patchver = version[2]
+
 		self.dict = {
 			"version": self.version,
 			"name": self.name,
@@ -192,10 +216,10 @@ class Submodule:
 			"src_dir": self.src_dir,
 			"out_dir": self.out_dir,
 			"rout_dir": self.rout_dir,
-			"install_dir": os.path.join(self.out_dir, self.install_dir),
-			"lib_dir": os.path.join(self.out_dir, self.install_dir, self.lib_dir),
-			"inc_dir": os.path.join(self.out_dir, self.install_dir, self.inc_dir),
-			"bin_dir": os.path.join(self.out_dir, self.install_dir, self.bin_dir),
+			"install_dir": self.install_dir,
+			"lib_dir":  self.lib_dir,
+			"inc_dir":  self.inc_dir,
+			"bin_dir":  self.bin_dir,
 		}
 
 		self.update_dep_dict(self.depends)
@@ -216,24 +240,24 @@ class Submodule:
 			self.update_dep_dict(dep.depends)
 
 	def get_url(self):
-		# semver the version string
-		version = self.version.split('.')
-		self.major = version[0]
-		if len(version) > 1:
-			self.minor = version[1]
-		if len(version) > 2:
-			self.patchver = version[2]
-
-		self.update_dict()
-
 		url = self.format(self.url)
 		(base,f) = os.path.split(url)
 		return (base+"/" + f, f)
 
-	def fetch(self, force=False):
+	def fetch(self, force=False, check=False):
+		self.update_dict()
+		if not self.url:
+			# this is a fake package with no source
+			self.fetched = True
+			return self
+
 		(url,tar) = self.get_url()
 		dest_tar = os.path.join(ftp_dir, tar)
 		if exists(dest_tar) and not force:
+			self.fetched = True
+			return dest_tar
+
+		if check:
 			return dest_tar
 
 		# make sure we have a place to put it
@@ -256,11 +280,17 @@ class Submodule:
 			info(tar + ": good hash")
 
 		writefile(dest_tar, data)
+		self.fetched = True
 		return dest_tar
 
-	def unpack(self):
+	def unpack(self, check=False):
+		if not self.url:
+			# this is a fake package with no source
+			self.unpacked = True
+			return self
+
 		tarfile = self.fetch()
-		if not tarfile:
+		if not tarfile and not check:
 			return False
 
 		self.patches = readfiles(self.patch_files)
@@ -272,7 +302,12 @@ class Submodule:
 
 		unpack_canary = os.path.join(self.src_dir, '.unpacked')
 		if exists(unpack_canary):
+			self.unpacked = True
 			return self
+
+		if check:
+			return self
+
 
 		mkdir(self.src_dir)
 
@@ -285,14 +320,23 @@ class Submodule:
 		)
 
 		writefile(unpack_canary, b'')
+		self.unpacked = True
 		return self
 
-	def patch(self):
-		if not self.unpack():
-			return False
+	def patch(self, check=False):
+		if not self.url:
+			# this is a fake package with no source
+			self.patched = True
+			return self
 
+		if not self.unpack(check):
+			return False
 		patch_canary = os.path.join(self.src_dir, '.patched')
 		if exists(patch_canary):
+			self.patched = True
+			return self
+
+		if check:
 			return self
 
 		for (patch_file,patch) in zip(self.patch_files, self.patches):
@@ -309,10 +353,11 @@ class Submodule:
 				)
 
 		writefile(patch_canary, b'')
+		self.patched = True
 		return self
 
-	def configure(self):
-		if not self.patch():
+	def configure(self, check=False):
+		if not self.patch(check):
 			return False
 
 		# the output hash depends on the source hash,
@@ -328,21 +373,37 @@ class Submodule:
 			cmd_hash = extend(None, commands)
 			make_hash = extend(make_hash, cmd_hash)
 
-		self.out_hash = extend(self.src_hash, [*configs, config_hash, make_hash])
+		new_out_hash = extend(self.src_hash, [*configs, config_hash, make_hash])
+
 		# and the output hash of the direct dependencies
 		for dep in self.depends:
-			self.out_hash = extend(self.out_hash, dep.out_hash)
+			new_out_hash = extend(new_out_hash, dep.out_hash)
+
+#		print(self.name + ": ", new_out_hash, self.src_hash)
+		if new_out_hash != self.out_hash and self.out_hash != zero_hash:
+			print(self.name + ": HASH CHANGED ", new_out_hash, self.out_hash)
+			exit(-1)
+		self.out_hash = new_out_hash
 
 		out_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
 		self.update_dict()
-		self.install_dir = os.path.join(self.out_dir, "install")
-		mkdir(self.out_dir)
+		self.install_dir = os.path.join(self.out_dir, self._install_dir)
+		self.bin_dir = os.path.join(self.install_dir, self._bin_dir)
+		self.lib_dir = os.path.join(self.install_dir, self._lib_dir)
+		self.inc_dir = os.path.join(self.install_dir, self._inc_dir)
 
 		config_canary = os.path.join(self.out_dir, ".configured")
 		if exists(config_canary):
+			self.configured = True
 			return self
+
+		if check:
+			# don't actually touch anything
+			return self
+
+		mkdir(self.out_dir)
 
 		kconfig_file = os.path.join(self.out_dir, ".config")
 		writefile(kconfig_file, b'\n'.join(configs))
@@ -352,35 +413,24 @@ class Submodule:
 			cmds.append(self.format(cmd))
 
 		system(*cmds, cwd=self.out_dir, log=os.path.join(self.out_dir, "configure-log"))
-		writefile(config_canary, b'')
 
+		writefile(config_canary, b'')
+		self.configured = True
 		return self
 
-	def build(self, force=False):
-		if self.parent:
-			# this is a child task; depdencies should prevent this case
-			if not self.parent.built:
-				print(self.name + ": parent not already built?", file=sys.stderr)
-				return False
-			# copy the parent parameters
-			self.out_dir = self.parent.out_dir
-			self.src_hash = self.parent.src_hash
-			self.src_dir = self.parent.src_dir
-			self.out_hash = self.parent.out_hash
-			self.rout_dir = self.parent.rout_dir
-			self.version = self.parent.version
-			self.major = self.parent.major
-			self.minor = self.parent.minor
-			self.patchver = self.parent.patchver
-			self.depends = [ *self.depends, *self.parent.depends ]
-			self.update_dict()
-		elif not self.configure():
+	def build(self, force=False, check=False):
+		if not self.configure(check=check):
 			return False
 
 		build_canary = os.path.join(self.out_dir, ".built-" + self.name)
 		if exists(build_canary) and not force:
 			self.built = True
 			return self
+		if check:
+			# don't actually run the make
+			return self
+
+		print("BUILD " + self.name + ": " + self.out_dir)
 
 		for commands in self.make_commands:
 			cmds = []
@@ -420,6 +470,9 @@ class Builder:
 		)
 		if len(self.failed) > 0:
 			print("failed=" + failed_list, file=sys.stderr)
+			return False
+
+		return True
 
 	def _build_thread(self, mod):
 
@@ -442,47 +495,57 @@ class Builder:
 		del self.building[mod.name]
 		#self.report()
 
-	def build_all(self):
-		#print("build_all(", [x.name for x in self.mods], ")")
+	def check(self):
+		# walk all the dependencies to ensure consistency of inputs
 		self.reset()
 
-		# copy the desired mods to the build list
+		# build the transitive closure of all modules that are
+		# required, and sort them into a build order so that
+		# dependencies are maintained
+		ts = TopologicalSorter()
+
 		for mod in self.mods:
-			self.waiting[mod.name] = mod
+			ts.add(mod, *mod.depends)
+			for dep in mod.depends:
+				self.mods.append(dep)
+
+		ordered_mods = [*ts.static_order()]
+		print([x.name for x in ordered_mods])
+
+		for mod in ordered_mods:
+			mod.build(check=True)
+			if mod.built:
+				self.built[mod.name] = mod
+			else:
+				self.waiting[mod.name] = mod
+
+		#self.report()
+		for modname, mod in self.waiting.items():
+			print(mod.state() + " " + modname + ": " + mod.out_dir)
+		for modname, mod in self.built.items():
+			print(mod.state() + " " + modname + ": " + mod.out_dir)
+
+
+	def build_all(self):
+		if len(self.waiting) == 0:
+			self.check()
 
 		while True:
-			if len(self.failed) != 0:
-				print("build_all failed", file=sys.stderr)
-				self.report()
-				return False
-
-			if len(self.waiting) == 0:
+			if len(self.waiting) == 0 or len(self.failed) != 0:
 				# no mods left, no builders? we're done!
 				if len(self.building) == 0:
-					self.report()
-					return True
+					return self.report()
 
 				# no mods left, and builds are in process,
 				# wait for completions. is there a better way?
-				sleep(0.1)
+				sleep(1)
 				continue
 
 			for name in list(self.waiting):
 				mod = self.waiting[name]
 				ready = True
 				for dep in mod.depends:
-					if dep.name in self.built:
-						# we might be ready!
-						continue
-					elif dep.name in self.building:
-						# someone else is working on it, so we wait
-						ready = False
-					elif dep.name in self.waiting:
-						# already on the build list, let's wait
-						ready = False
-					else:
-						# add this to the head of the mod list
-						self.waiting[dep.name] = dep
+					if not dep.name in self.built:
 						ready = False
 
 				if not ready:
@@ -491,7 +554,6 @@ class Builder:
 
 				# it is time to build this mod!
 				mod.building = True
-				print(mod.name + ": starting build")
 				Thread(target = self._build_thread, args=(mod,)).start()
 
 			# processed the list of waiting ones sleep for a bit and
