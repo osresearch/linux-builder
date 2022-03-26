@@ -162,8 +162,11 @@ musl = worldbuilder.Submodule("musl",
 	],
 	depends = [ linux, gcc ],
 	patches = [ "patches/musl-0000-fastmath.patch" ],
-	make = [ "make", "install", ],
-	#extra_path = "%(binutils.install_dir)s/bin",
+	make = [
+		"make",
+		"install",
+		"LDSO_PATHNAME=/lib/ld-musl-x86_64.so.1",
+	],
 )
 
 # pick up in the cross gcc target once musl has been built so that
