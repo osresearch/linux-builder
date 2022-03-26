@@ -120,6 +120,7 @@ class Submodule:
 		tarhash = None,
 		patches = None,
 		patch_dir = None,
+		dirty = False,
 		config_files = None,
 		configure = None,
 		make = None,
@@ -149,9 +150,11 @@ class Submodule:
 		self.patch_level = 1
 		self.strip_components = 1
 		self.tar_options = []
+		self.dirty = dirty
 
 		self.src_hash = zero_hash
 		self.out_hash = zero_hash
+		self.tar_file = None
 		self.major = None
 		self.minor = None
 		self.patchver = None
@@ -211,6 +214,7 @@ class Submodule:
 			"major": self.major,
 			"minor": self.minor,
 			"patch": self.patchver,
+			"tar_file": self.tar_file,
 			"src_hash": self.src_hash[0:16],
 			"out_hash": self.out_hash[0:16],
 			"src_dir": self.src_dir,
@@ -252,13 +256,14 @@ class Submodule:
 			return self
 
 		(url,tar) = self.get_url()
-		dest_tar = os.path.join(ftp_dir, tar)
+		dest_tar = os.path.abspath(os.path.join(ftp_dir, tar))
+		self.tar_file = dest_tar
 		if exists(dest_tar) and not force:
 			self.fetched = True
-			return dest_tar
+			return self
 
 		if check:
-			return dest_tar
+			return self
 
 		# make sure we have a place to put it
 		mkdir(ftp_dir)
@@ -281,7 +286,7 @@ class Submodule:
 
 		writefile(dest_tar, data)
 		self.fetched = True
-		return dest_tar
+		return self
 
 	def unpack(self, check=False):
 		if not self.url:
@@ -289,15 +294,21 @@ class Submodule:
 			self.unpacked = True
 			return self
 
-		tarfile = self.fetch()
-		if not tarfile and not check:
+		if not self.fetch():
 			return False
 
 		self.patches = readfiles(self.patch_files)
 		self.src_hash = extend(self.tarhash, self.patches)
 
-		src_subdir = os.path.join(self.name + "-" + self.version, self.src_hash[0:16])
-		self.src_dir = os.path.abspath(os.path.join(src_dir, src_subdir))
+		if self.dirty:
+			# the src_subdir is based on the output hash,
+			# not the src hash, since it writes to the
+			# directory
+			src_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
+			self.src_dir = os.path.abspath(os.path.join(out_dir, src_subdir))
+		else:
+			src_subdir = os.path.join(self.name + "-" + self.version, self.src_hash[0:16])
+			self.src_dir = os.path.abspath(os.path.join(src_dir, src_subdir))
 		self.update_dict()
 
 		unpack_canary = os.path.join(self.src_dir, '.unpacked')
@@ -308,12 +319,15 @@ class Submodule:
 		if check:
 			return self
 
+		if self.dirty:
+			info("CLEANUP " + self.name)
+			system("rm", "-rf", self.src_dir)
 
 		mkdir(self.src_dir)
 
-		info(tarfile + ": unpacking into " + self.src_dir)
+		info("UNPACK " + self.name + ": " + self.tar_file + " -> " + self.src_dir)
 		system("tar",
-			"-xf", tarfile,
+			"-xf", self.tar_file,
 			"-C", self.src_dir,
 			"--strip-components", "%d" % (self.strip_components),
 			*self.tar_options,
@@ -388,11 +402,12 @@ class Submodule:
 		out_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
-		self.update_dict()
 		self.install_dir = os.path.join(self.out_dir, self._install_dir)
 		self.bin_dir = os.path.join(self.install_dir, self._bin_dir)
 		self.lib_dir = os.path.join(self.install_dir, self._lib_dir)
 		self.inc_dir = os.path.join(self.install_dir, self._inc_dir)
+
+		self.update_dict()
 
 		config_canary = os.path.join(self.out_dir, ".configured")
 		if exists(config_canary):
