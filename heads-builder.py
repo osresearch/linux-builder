@@ -23,7 +23,7 @@ for modname in glob("modules/*"):
 if len(sys.argv) > 1:
 	deps = sys.argv[1:]
 else:
-	deps = ["cryptsetup", "lvm2", "flashrom", "pciutils", "busybox", "kexec", "util-linux"]
+	deps = "dropbear cryptsetup lvm2 flashrom pciutils busybox kexec util-linux".split(' ')
 
 build = worldbuilder.Builder(deps)
 

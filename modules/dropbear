@@ -1,0 +1,31 @@
+# dropbear is a tiny ssh client
+worldbuilder.Submodule("dropbear",
+	depends = [ "zlib", "linux", "gcc" ],
+	version = "2016.74",
+	patches = [ "patches/dropbear-2016.74.patch", ],
+	url = "https://matt.ucc.asn.au/dropbear/releases/dropbear-%(version)s.tar.bz2",
+	tarhash = "2720ea54ed009af812701bcc290a2a601d5c107d12993e5d92c0f5f81f718891",
+	configure = [
+		worldbuilder.configure_cmd,
+		"--prefix=%(install_dir)s",
+		"--host=x86_64-linux-gnu",
+		"--disable-syslog",
+		"--disable-lastlog",
+		"--disable-utmp",
+		"--disable-utmpx",
+		"--disable-wtmp",
+		"--disable-wtmpx",
+		"--with-zlib=%(zlib.install_dir)s",
+		"CFLAGS=-I%(linux.inc_dir)s -I%(out_dir)s -I%(src_dir)s -I%(src_dir)s/libtommath",
+		*cross_tools,
+	],
+#dropbear_output := ssh scp dropbear
+	make = [
+		"make",
+		#"DESTDIR="$(INSTALL)" \
+		"dbclient",
+		"scp",
+		"dropbear",
+	],
+	#cp -a $(build)/$(dropbear_dir)/dbclient $(build)/$(dropbear_dir)/ssh
+)
