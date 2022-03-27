@@ -85,6 +85,7 @@ cross_tools_nocc = [x.upper() + "=" + cross + x
 
 cross_tools = [
 	"CC=%(musl.install_dir)s/bin/musl-gcc",
+	"CXX=%(musl.install_dir)s/bin/musl-gcc",
 	*cross_tools_nocc,
 ]
 	#"CFLAGS=-I%(linux.out_dir)s/usr/include",
@@ -103,7 +104,7 @@ crossgcc = worldbuilder.Submodule("crossgcc",
 		"--with-gmp=%(gmp.install_dir)s",
 		"--with-mpfr=%(mpfr.install_dir)s",
 		"--target", target_arch,
-		"--enable-languages=c",
+		"--enable-languages=c,c++",
 		"--without-headers",
 		"--with-newlib",
 		"--with-build-time-tools=%(binutils.install_dir)s/bin",
