@@ -50,6 +50,8 @@ kbuild_make = [
 
 configure_cmd = "%(src_dir)s/configure"
 
+# global list of modules; names must be unique
+global_mods = {}
 
 def sha256hex(data):
 	#print("hashing %d bytes" % (len(data)), data)
@@ -71,6 +73,9 @@ def system(*s, cwd=None, log=None):
 
 	if log:
 		logfile = open(log, "w+")
+		print("cd " + os.path.abspath(cwd), file=logfile)
+		print(*s, file=logfile)
+		logfile.flush()
 	else:
 		logfile = None
 
@@ -125,12 +130,16 @@ class Submodule:
 		configure = None,
 		make = None,
 		depends = None,
+		install_dir = None,
 		lib_dir = None,
 		bin_dir = None,
 		inc_dir = None,
 	):
 		#if not url and not git:
 			#raise RuntimeError("url or git must be specified")
+		if name in global_mods:
+			die(name + ": already exists in the global module list?")
+		global_mods[name] = self
 
 		self.name = name
 		self.url = url
@@ -142,10 +151,10 @@ class Submodule:
 		self.configure_commands = configure or [ configure_cmd ]
 		self.make_commands = make or [ "make" ]
 		self.depends = depends or []
-		self._bin_dir = bin_dir or "bin"
-		self._lib_dir = lib_dir or "lib"
-		self._inc_dir = inc_dir or "include"
-		self._install_dir = "install"
+		self._bin_dir = "bin" if bin_dir is None else bin_dir
+		self._lib_dir = "lib" if lib_dir is None else lib_dir
+		self._inc_dir = "include" if inc_dir is None else inc_dir
+		self._install_dir = "install" if install_dir is None else install_dir
 
 		self.patch_level = 1
 		self.strip_components = 1
@@ -231,6 +240,9 @@ class Submodule:
 	# recursively add the dependency keys
 	def update_dep_dict(self,deps):
 		for dep in deps:
+			if type(dep) is str:
+				# defer this one until later
+				continue
 			for key in dep.dict:
 				if key.count('.') != 0:
 					continue
@@ -399,6 +411,8 @@ class Submodule:
 			exit(-1)
 		self.out_hash = new_out_hash
 
+		# todo: include more configuration in the out_hash (dirty, inc_dir, etc)
+
 		out_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
@@ -521,6 +535,21 @@ class Builder:
 		ts = TopologicalSorter()
 
 		for mod in self.mods:
+			# lookup any strings-based dependencies
+			depends = []
+			if type(mod) == str:
+				if not mod in global_mods:
+					die(mod + ": not found?")
+				mod = global_mods[mod]
+
+			for dep in mod.depends:
+				if type(dep) == str:
+					if not dep in global_mods:
+						die(dep + ": not found? referenced by " + mod.name)
+					dep = global_mods[dep]
+				depends.append(dep)
+			mod.depends = depends
+					
 			ts.add(mod, *mod.depends)
 			for dep in mod.depends:
 				self.mods.append(dep)

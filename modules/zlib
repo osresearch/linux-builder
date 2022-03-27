@@ -1,0 +1,21 @@
+worldbuilder.Submodule('zlib',
+	depends = [ "gcc" ],
+	version = '1.2.11',
+	url = 'https://www.zlib.net/zlib-%(version)s.tar.gz',
+	tarhash = 'c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1',
+	dirty = True,
+	configure = [
+		# TODO: add way to pass env rather than invoking bash
+		"bash", "-c", " ".join([
+			*cross_tools,
+			worldbuilder.configure_cmd,
+			"--prefix=%(install_dir)s",
+		]),
+	],
+	make = [ "make", *cross_tools ],
+	install_dir = '',  # it just drops them in the root directory
+	lib_dir = '',
+	inc_dir = '',
+)
+#zlib_libraries := libz.so.1
+

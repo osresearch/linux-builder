@@ -1,0 +1,22 @@
+worldbuilder.Submodule('kexec',
+	version = '2.0.20',
+	url = 'https://kernel.org/pub/linux/utils/kernel/kexec/kexec-tools-%(version)s.tar.gz',
+	tarhash = 'cb16d79818e0c9de3bb3e33ede5677c34a1d28c646379c7ab44e0faa3eb57a16',
+	patches = [
+		"patches/kexec-2.0.20.patch",
+		"patches/kexec-2.0.20-duplicate-symbols.patch",
+	],
+	depends = [ "linux", "gcc" ],
+	configure = [
+		worldbuilder.configure_cmd,
+		"--prefix=%(install_dir)s",
+		"--host", 'x86_64-linux-gnu', #'i386-elf-linux',
+		"--target", 'x86_64',
+		"--without-lzma",
+		*cross_tools,
+		"CFLAGS=-I%(linux.inc_dir)s",
+	],
+	make = [ "make", "install" ],
+	bin_dir = 'sbin',
+)
+

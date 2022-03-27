@@ -4,3 +4,5 @@ init: init.c
 
 world:
 	+./helloworld.py
+heads:
+	+./heads-builder.py
