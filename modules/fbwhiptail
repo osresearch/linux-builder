@@ -1,0 +1,23 @@
+worldbuilder.Submodule("fbwhiptail",
+	depends = [ "cairo", "pixman", "libpng", "zlib", "linux", "gcc" ],
+	version = "0f14a409735b71c219e0b9b3ee63cdae709ba143",
+	url = "https://source.puri.sm/coreboot/fbwhiptail/-/archive/%(version)s/fbwhiptail-%(version)s.tar.gz",
+	tarhash = "d664cad8a5bd5354258809a642b717c46c5b7b9e797c6275b9d6494986ad0f15",
+	patches = [ "patches/fbwhiptail.patch" ],
+	dirty = True,
+	configure = [ "true" ],
+	make = [
+		"make",
+		"fbwhiptail",
+		*cross_tools,
+		"CFLAGS="
+		+ " -I%(cairo.inc_dir)s"
+		+ " -I%(linux.inc_dir)s"
+		+ " -L%(cairo.lib_dir)s"
+		+ " -L%(pixman.lib_dir)s"
+		+ " -L%(libpng.lib_dir)s"
+		+ " -L%(zlib.lib_dir)s",
+	],
+)
+
+# fbwhiptail_output :=  fbwhiptail whiptail

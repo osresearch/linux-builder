@@ -1,0 +1,12 @@
+diff -u --recursive clean/Makefile 43944c0993ea92c8/Makefile
+--- clean/Makefile	2022-03-27 21:32:45.691722963 +0000
++++ 43944c0993ea92c8/Makefile	2022-03-27 21:33:14.343558010 +0000
+@@ -12,7 +12,7 @@
+ 
+ 
+ fbwhiptail: fbwhiptail.c fbwhiptail_menu.c cairo_menu.c cairo_utils.c cairo_dri.c cairo_linuxfb.c
+-	$(CC) -g -O0 -o $@ $^ -lm -lcairo -lpixman-1 -lpng16 -lz
++	$(CC) -g -O0 $(CFLAGS) -o $@ $^ -lm -lcairo -lpixman-1 -lpng16 -lz
+ 
+ gtkwhiptail: fbwhiptail.c fbwhiptail_menu.c fbwhiptail_menu.h cairo_menu.c cairo_utils.c
+ 	$(CC) -g -O0 -DGTKWHIPTAIL -o $@ $^ -lm 		\
