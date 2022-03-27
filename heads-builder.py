@@ -6,6 +6,7 @@ import cpiofile
 import os
 import sys
 from glob import glob
+import traceback
 
 from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools, cross, target_arch, musl
 
@@ -14,14 +15,15 @@ for modname in glob("modules/*"):
 		with open(modname, "r") as f:
 			exec(f.read())
 	except Exception as e:
-		print(modname + ": failed to parse")
+		print(modname + ": failed to parse", file=sys.stderr)
+		print(traceback.format_exc(), file=sys.stderr)
 		exit(1)
 
 
 if len(sys.argv) > 1:
 	deps = sys.argv[1:]
 else:
-	deps = ["flashrom", "pciutils", "busybox", "kexec", "util-linux"]
+	deps = ["lvm2", "flashrom", "pciutils", "busybox", "kexec", "util-linux"]
 
 build = worldbuilder.Builder(deps)
 
