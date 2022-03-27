@@ -1,0 +1,36 @@
+worldbuilder.Submodule("cryptsetup",
+	depends = [ "util-linux", "popt", "lvm2", "gcc" ],
+	version = "1.7.3",
+	url = 'https://www.kernel.org/pub/linux/utils/cryptsetup/v%(major)s.%(minor)s/cryptsetup-%(version)s.tar.xz',
+	tarhash = 'af2b04e8475cf40b8d9ffd97a1acfa73aa787c890430afd89804fb544d6adc02',
+	patches = [ "patches/cryptsetup-1.7.3.patch" ],
+# Use an empty prefix so that the executables will not include the
+# build path. -- TODO fix this?
+	configure = [
+		worldbuilder.configure_cmd,
+		"--prefix=%(install_dir)s",
+		"--host=x86_64-linux-gnu",
+		"--disable-gcrypt-pbkdf2",
+		"--enable-cryptsetup-reencrypt",
+		"--with-crypto_backend=kernel",
+		*cross_tools,
+		"CFLAGS=-I%(util-linux.inc_dir)s -I%(lvm2.inc_dir)s -I%(linux.inc_dir)s -I%(popt.inc_dir)s",
+		"LDFLAGS=-L%(util-linux.lib_dir)s -L%(popt.lib_dir)s",
+		"DEVMAPPER_CFLAGS=-I%(lvm2.inc_dir)s",
+		"DEVMAPPER_LIBS=-L%(lvm2.lib_dir)s -ldevmapper",
+	],
+# but after building, replace prefix so that they will be installed
+# in the correct directory.
+	make = [
+		[ "make", "all" ],
+		[ "make", "install", "prefix=%(install_dir)s", ]
+	],
+#cryptsetup_output := \
+#	src/.libs/cryptsetup \
+#	src/.libs/cryptsetup-reencrypt \
+#	src/.libs/veritysetup \
+#
+#cryptsetup_libraries := \
+#	lib/.libs/libcryptsetup.so.4 \
+
+)
