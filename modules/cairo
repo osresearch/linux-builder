@@ -1,0 +1,34 @@
+worldbuilder.Submodule("cairo",
+	depends = [ "pixman", "libpng", "gcc" ],
+	version = "1.14.12",
+	url = "https://www.cairographics.org/releases/cairo-%(version)s.tar.xz",
+	tarhash = "8c90f00c500b2299c0a323dd9beead2a00353752b2092ead558139bd67f7bf16",
+	configure = [
+		worldbuilder.configure_cmd,
+		"--prefix=%(install_dir)s",
+		"--host=x86_64-linux-gnu",
+		"--disable-xlib",
+		"--disable-xcb",
+		"--disable-pdf",
+		"--disable-ps",
+		"--disable-svg",
+		"--disable-script",
+		"--disable-ft",
+		"--disable-fc",
+		"--disable-pthread",
+		"--disable-gobject",
+		"CFLAGS=-DCAIRO_NO_MUTEX=1 -O3 -I%(zlib.inc_dir)s",
+		"LDFLAGS=-L%(pixman.lib_dir)s -L%(libpng.lib_dir)s -L%(zlib.lib_dir)s",
+		*cross_tools,
+	],
+
+#	&& sed \
+#		-e 's/^hardcode_libdir_flag_spec.*/hardcode_libdir_flag_spec=" -D__LIBTOOL_RPATH_DISABLE__ "/' \
+#		< libtool \
+#		> libtool-2 \
+#	&& mv libtool-2 libtool \
+#	&& chmod 755 libtool
+
+	make = [ "make", "install" ],
+)
+
