@@ -134,6 +134,8 @@ class Submodule:
 		lib_dir = None,
 		bin_dir = None,
 		inc_dir = None,
+		patch_level = 1,
+		strip_components = 1,
 	):
 		#if not url and not git:
 			#raise RuntimeError("url or git must be specified")
@@ -144,20 +146,20 @@ class Submodule:
 		self.name = name
 		self.url = url
 		#self.git = git
-		self.version = version
+		self.version = "NOVERSION" if not version else version
 		self.tarhash = tarhash
 		self.patch_files = patches or []
 		self.config_files = config_files or []
-		self.configure_commands = configure or [ configure_cmd ]
-		self.make_commands = make or [ "make" ]
+		self.configure_commands = configure or [ "true" ]
+		self.make_commands = make or [ "true" ]
 		self.depends = depends or []
 		self._bin_dir = "bin" if bin_dir is None else bin_dir
 		self._lib_dir = "lib" if lib_dir is None else lib_dir
 		self._inc_dir = "include" if inc_dir is None else inc_dir
 		self._install_dir = "install" if install_dir is None else install_dir
 
-		self.patch_level = 1
-		self.strip_components = 1
+		self.patch_level = patch_level
+		self.strip_components = strip_components
 		self.tar_options = []
 		self.dirty = dirty
 
