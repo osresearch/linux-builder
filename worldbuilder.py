@@ -55,14 +55,14 @@ global_mods = {}
 
 def sha256hex(data):
 	#print("hashing %d bytes" % (len(data)), data)
+	if type(data) is str:
+		data = data.encode('utf-8')
 	return hashlib.sha256(data).hexdigest()
 def extend(h, data):
 	if h is None:
 		h = zero_hash
 	for datum in data:
-		if type(datum) is str:
-			datum = datum.encode('utf-8')
-		h = sha256hex((h + sha256hex(datum)).encode('utf-8'))
+		h = sha256hex(h + sha256hex(datum))
 	return h
 
 def system(*s, cwd=None, log=None):
@@ -384,15 +384,7 @@ class Submodule:
 		self.patched = True
 		return self
 
-	def configure(self, check=False):
-		if not self.patch(check):
-			return False
-
-		# the output hash depends on the source hash,
-		# the configure command, the make command
-		configs = readfiles(self.config_files)
-		config_hash = extend(None, [x.encode('utf-8') for x in self.configure_commands])
-
+	def update_hashes(self, config_hash):
 		# ensure that there is a list of make commands
 		if type(self.make_commands[0]) == str:
 			self.make_commands = [ self.make_commands ]
@@ -401,7 +393,7 @@ class Submodule:
 			cmd_hash = extend(None, commands)
 			make_hash = extend(make_hash, cmd_hash)
 
-		new_out_hash = extend(self.src_hash, [*configs, config_hash, make_hash])
+		new_out_hash = extend(self.src_hash, [config_hash, make_hash])
 
 		# and the output hash of the direct dependencies
 		for dep in self.depends:
@@ -424,6 +416,19 @@ class Submodule:
 		self.inc_dir = os.path.join(self.install_dir, self._inc_dir)
 
 		self.update_dict()
+
+	def configure(self, check=False):
+		if not self.patch(check):
+			return False
+
+		# the output hash depends on the source hash,
+		# the configure command, the make command
+		configs = readfiles(self.config_files)
+		config_hash = extend(zero_hash, configs)
+		config_hash = extend(config_hash, self.configure_commands)
+
+		self.update_hashes(config_hash)
+
 
 		config_canary = os.path.join(self.out_dir, ".configured")
 		if exists(config_canary):
