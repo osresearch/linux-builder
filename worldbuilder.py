@@ -470,12 +470,12 @@ class Submodule:
 
 	def build_required(self, check, force, build_canary):
 		# update our check time for GC of build trees
+		mkdir(self.out_dir)
 		writefile(os.path.join(self.out_dir, '.build-checked'), b'')
 
 		# no canary? definitely have to rebuild
 		self.built = False
 		if not exists(build_canary) or force:
-			print(self.name + ": no canary", build_canary)
 			return not check
 
 		# do a scan of the dependent files for timestamps relative to canary
