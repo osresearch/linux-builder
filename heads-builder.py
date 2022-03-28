@@ -8,7 +8,7 @@ import sys
 from glob import glob
 import traceback
 
-from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools, cross, target_arch, musl
+from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, musl
 
 for modname in glob("modules/*"):
 	try:
@@ -23,7 +23,7 @@ for modname in glob("modules/*"):
 if len(sys.argv) > 1:
 	deps = sys.argv[1:]
 else:
-	deps = "newt fbwhiptail dropbear cryptsetup lvm2 flashrom pciutils busybox kexec util-linux".split(' ')
+	deps = "coreboot newt fbwhiptail dropbear cryptsetup lvm2 flashrom pciutils busybox kexec util-linux".split(' ')
 
 build = worldbuilder.Builder(deps)
 
