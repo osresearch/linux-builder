@@ -19,7 +19,7 @@ linux_src = worldbuilder.Submodule("linux",
 	inc_dir = "usr/include",
 )
 
-worldbuilder.Submodule("linux-kernel",
+worldbuilder.Submodule("linux-qemu",
 	version = linux_src.version,
 	depends = [ linux_src, "crossgcc" ], # doesn't need musl so it can start earlier
 	config_files = [ "config/linux-virtio.config" ],
@@ -38,7 +38,8 @@ worldbuilder.Submodule("linux-kernel",
 		"O=%(out_dir)s",
 		"KBUILD_HOST=builder",
 		"KBUILD_USER=%(out_hash)s",
-		"KBUILD_BUILD_TIMESTAMP=1970-01-01",
+		"KBUILD_BUILD_TIMESTAMP=1970-01-01T00:00:00",
 		"KBUILD_BUILD_VERSION=%(linux.src_hash)s",
 	],
+	install_dir = "arch/x86/boot",
 )
