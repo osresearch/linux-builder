@@ -19,13 +19,15 @@ worldbuilder.Submodule("dropbear",
 		"CFLAGS=-I%(linux.inc_dir)s -I%(out_dir)s -I%(src_dir)s -I%(src_dir)s/libtommath",
 		*cross_tools,
 	],
-#dropbear_output := ssh scp dropbear
-	make = [
+	make = [ [
 		"make",
-		#"DESTDIR="$(INSTALL)" \
+		#"DESTDIR=install",
 		"dbclient",
 		"scp",
 		"dropbear",
+		"install"
+		],
+		[ "cp", "-a", "%(bin_dir)s/dbclient", "%(bin_dir)s/ssh" ],
+		[ "cp", "-a", "%(install_dir)s/sbin/dropbear", "%(bin_dir)s/sshd" ],
 	],
-	#cp -a $(build)/$(dropbear_dir)/dbclient $(build)/$(dropbear_dir)/ssh
 )
