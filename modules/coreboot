@@ -22,16 +22,15 @@ versions = {
 	},
 }
 
-version = "4.15"
+coreboot_version = "4.15"
 board = "qemu"
 default_extra_flags = "-fdebug-prefix-map=$(pwd)=heads -gno-record-gcc-switches -Wno-error=packed-not-aligned"
 
-config = versions[version]
+config = versions[coreboot_version]
 
 libgcc="%(binutils32.lib_dir)s/gcc/i386-linux-musl/%(gcc32.version)s/libgcc.a"
 
 extra_env = [
-	"-C%(src_dir)s",
 	"V=1",
 	"obj=%(out_dir)s/" + board,
 	"DOTCONFIG=%(out_dir)s/.config",
@@ -44,27 +43,55 @@ extra_env = [
 	#*cross_tools32_nocc,
 ]
 
-worldbuilder.Submodule("coreboot",
+worldbuilder.Submodule("coreboot_src-" + coreboot_version,
 	depends = [ "linux", "gcc32", "iasl" ],
 	url = "https://www.coreboot.org/releases/coreboot-%(version)s.tar.xz",
-	version = version,
+	version = coreboot_version,
 	tarhash = config["tarhash"],
+	patches = glob("patches/coreboot-"+ coreboot_version + "/*"),
+)
+
+
+worldbuilder.Submodule("coreboot_blobs-" + coreboot_version,
+	depends = [ "coreboot_src-" + coreboot_version ],
+	version = coreboot_version,
+	url = "https://www.coreboot.org/releases/coreboot-blobs-%(version)s.tar.xz",
+	tarhash = config["blobs_hash"],
+	strip_components = 3,
+	configure = [ "true" ],
+	make = [ "ln", "-sf", "%(src_dir)s", "%(coreboot_src-"+coreboot_version+".src_dir)s/3rdparty/blobs" ],
+)
+
+
+coreboot = worldbuilder.Submodule("coreboot-" + board,
+	version = coreboot_version,
+	depends = [ "coreboot_src-" + coreboot_version, "coreboot_blobs-" + coreboot_version ],
 	config_files = [ "config/coreboot-" + board + ".config" ],
-	patches = glob("patches/coreboot-"+ version + "/*"),
 	configure = [
 		"make",
 		"olddefconfig",
+		"-C%(coreboot_src-"+coreboot_version+".src_dir)s",
 		*extra_env,
 #	&& echo 'CONFIG_LOCALVERSION="Heads-$(HEADS_GIT_VERSION)"' >> $(build)/$(coreboot_dir)/.config \
 #	&& echo 'CONFIG_MAINBOARD_SMBIOS_PRODUCT_NAME="$(BOARD)"' >> $(build)/$(coreboot_dir)/.config \
 	],
 	make = [
 		"make",
+		"-C%(coreboot_src-"+coreboot_version+".src_dir)s",
 		*extra_env,
 	],
 )
 
 """
+if 
+
+## there is nothing to build for the blobs, this should be
+## made easier to make happen
+coreboot-blobs_output := .built
+coreboot-blobs_configure := echo -e 'all:\n\ttouch .built' > Makefile
+
+endif
+endif
 
 COREBOOT_IASL="$(build)/$(coreboot_base_dir)/util/crossgcc/xgcc/bin/iasl"
 
@@ -146,13 +173,6 @@ coreboot-blobs_version := $(coreboot_version)
 coreboot-blobs_tar := coreboot-blobs-$(coreboot-blobs_version).tar.xz
 coreboot-blobs_url := https://www.coreboot.org/releases/$(coreboot-blobs_tar)
 
-ifeq "$(CONFIG_COREBOOT_VERSION)" "4.8.1"
-	coreboot-blobs_tar_opt := --strip 3
-	coreboot-blobs_dir := coreboot-$(coreboot-blobs_version)/3rdparty/blobs
-else
-	coreboot-blobs_tar_opt := --strip 2
-	coreboot-blobs_dir := coreboot-$(coreboot-blobs_version)/3rdparty
-endif
 
 ## there is nothing to build for the blobs, this should be
 ## made easier to make happen
