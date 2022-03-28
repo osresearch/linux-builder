@@ -127,6 +127,7 @@ class Submodule:
 		patch_dir = None,
 		dirty = False,
 		config_files = None,
+		config_append = None,
 		configure = None,
 		make = None,
 		depends = None,
@@ -150,6 +151,7 @@ class Submodule:
 		self.tarhash = tarhash
 		self.patch_files = patches or []
 		self.config_files = config_files or []
+		self.config_append = config_append or []
 		self.configure_commands = configure or [ "true" ]
 		self.make_commands = make or [ "true" ]
 		self.depends = depends or []
@@ -422,13 +424,16 @@ class Submodule:
 			return False
 
 		# the output hash depends on the source hash,
-		# the configure command, the make command
+		# the source config files, any updates to those files,
+		# the commands executed to configure the programs,
+		# and any dependencies
+		# todo: should the hash be on the unexpanded append lines?
 		configs = readfiles(self.config_files)
-		config_hash = extend(zero_hash, configs)
+
+		config_hash = extend(zero_hash, [ *configs, *self.config_append ])
 		config_hash = extend(config_hash, self.configure_commands)
 
 		self.update_hashes(config_hash)
-
 
 		config_canary = os.path.join(self.out_dir, ".configured")
 		if exists(config_canary):
@@ -442,6 +447,11 @@ class Submodule:
 		mkdir(self.out_dir)
 
 		kconfig_file = os.path.join(self.out_dir, ".config")
+
+		# expand the configuration appended lines now
+		for append in self.config_append:
+			configs.append(self.format(append).encode('utf-8'))
+
 		writefile(kconfig_file, b'\n'.join(configs))
 
 		cmds = []
@@ -555,6 +565,7 @@ class Builder:
 						die(dep + ": not found? referenced by " + mod.name)
 					dep = global_mods[dep]
 				depends.append(dep)
+
 			mod.depends = depends
 					
 			ts.add(mod, *mod.depends)
