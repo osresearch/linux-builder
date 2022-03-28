@@ -131,6 +131,7 @@ class Submodule:
 		configure = None,
 		make = None,
 		depends = None,
+		dep_files = None,
 		install_dir = None,
 		lib_dir = None,
 		bin_dir = None,
@@ -155,6 +156,7 @@ class Submodule:
 		self.configure_commands = configure or [ "true" ]
 		self.make_commands = make or [ "true" ]
 		self.depends = depends or []
+		self.dep_files = dep_files or []
 		self._bin_dir = "bin" if bin_dir is None else bin_dir
 		self._lib_dir = "lib" if lib_dir is None else lib_dir
 		self._inc_dir = "include" if inc_dir is None else inc_dir
@@ -465,16 +467,43 @@ class Submodule:
 		self.configured = True
 		return self
 
+
+	def build_required(self, check, force, build_canary):
+		# update our check time for GC of build trees
+		writefile(os.path.join(self.out_dir, '.build-checked'), b'')
+
+		# no canary? definitely have to rebuild
+		self.built = False
+		if not exists(build_canary) or force:
+			print(self.name + ": no canary", build_canary)
+			return not check
+
+		# do a scan of the dependent files for timestamps relative to canary
+		canary_build_time = os.stat(build_canary).st_mtime
+		for filename in self.dep_files:
+			real_filename = self.format(filename)
+			if not exists(real_filename):
+				print(self.name + ": no " + real_filename)
+				return not check
+			if os.stat(real_filename).st_mtime > canary_build_time:
+				print(self.name + ": newer " + real_filename)
+				return not check
+
+		# and check all of our dependencies
+		for dep in self.depends:
+			if not dep.built:
+				return not check
+
+		# we're probably ok; mark our status as built
+		self.built = True
+		return False
+
 	def build(self, force=False, check=False):
 		if not self.configure(check=check):
 			return False
 
 		build_canary = os.path.join(self.out_dir, ".built-" + self.name)
-		if exists(build_canary) and not force:
-			self.built = True
-			return self
-		if check:
-			# don't actually run the make
+		if not self.build_required(check, force, build_canary):
 			return self
 
 		print("BUILD " + self.name + ": " + self.out_dir)
@@ -488,6 +517,7 @@ class Submodule:
 
 		writefile(build_canary, b'')
 		self.built = True
+
 		return self
 
 

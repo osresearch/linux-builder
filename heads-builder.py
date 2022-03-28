@@ -43,6 +43,11 @@ class Initrd(worldbuilder.Submodule):
 		self.devices = devices or []
 		self._install_dir = ""
 
+		# make sure that we depend on any files that we bring in
+		for dir_name in self.files:
+			for f in self.files[dir_name]:
+				self.dep_files.append(f)
+
 	def fetch(self, check=False):
 		self.fetched = True
 		return self
@@ -89,12 +94,8 @@ class Initrd(worldbuilder.Submodule):
 		if not self.configure(check=check):
 			return False
 
-		build_canary = os.path.join(self.out_dir, ".built-" + self.name)
-		if exists(build_canary) and not force:
-			self.built = True
-			return self
-
-		if check:
+		build_canary = os.path.join(self.out_dir, ".build-" + self.name)
+		if not self.build_required(check, force, build_canary):
 			return self
 
 		print("initrd! time to build --------------", self.out_dir)
@@ -130,6 +131,9 @@ initrd = Initrd("qemu",
 		],
 		"/lib": [
 			"%(musl.lib_dir)s/libc.so",
+		],
+		"/": [
+			"init",
 		],
 	},
 	symlinks = [

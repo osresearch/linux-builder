@@ -63,13 +63,17 @@ worldbuilder.Submodule("coreboot_blobs-" + coreboot_version,
 )
 
 
+initrd_file = '%(initrd-'+board+'.install_dir)s/initrd.cpio.xz'
+kernel_file = '%(linux-'+board+'.install_dir)s/bzImage'
+
 coreboot = worldbuilder.Submodule("coreboot-" + board,
 	version = coreboot_version,
 	depends = [ "initrd-"+board, "linux-" + board, "coreboot_src-" + coreboot_version, "coreboot_blobs-" + coreboot_version ],
 	config_files = [ "config/coreboot-" + board + ".config" ],
+	dep_files = [ initrd_file, kernel_file ],
 	config_append = [
-		'CONFIG_LINUX_INITRD="%(initrd-'+board+'.install_dir)s/initrd.cpio.xz"',
-		'CONFIG_PAYLOAD_FILE="%(linux-'+board+'.install_dir)s/bzImage"',
+		'CONFIG_LINUX_INITRD="' + initrd_file + '"',
+		'CONFIG_PAYLOAD_FILE="' + kernel_file + '"',
 	],
 	configure = [
 		"make",
