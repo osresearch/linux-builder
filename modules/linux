@@ -1,22 +1,44 @@
-worldbuilder.Submodule("linux",
-	depends = [ "crossgcc" ], # doesn't need musl so it can start earlier
+# "linux" is actually just the headers
+# "linux-CONFIG" is the kernel
+linux_src = worldbuilder.Submodule("linux",
 	url = "https://cdn.kernel.org/pub/linux/kernel/v%(major)s.x/linux-%(version)s.tar.xz",
 	version = "5.4.117",
 	tarhash = "4e989b5775830092e5c76b5cca65ebff862ad0c87d0b58c3a20d415c3d4ec770",
-	config_files = [ "config/linux-virtio.config" ],
 	configure = [
 		"make",
 		"-C%(src_dir)s",
-		"O=%(rout_dir)s",
-		"olddefconfig",
-		*cross_tools_nocc,
-		"CC=" + cross + "gcc",
+		"O=%(install_dir)s",
+		"defconfig",
 	],
-	make = [ 
-		worldbuilder.kbuild_make,
-		[ "make", "headers_install" ],
+	make = [
+		"make",
+		"-C%(src_dir)s",
+		"O=%(install_dir)s",
+		"headers_install"
 	],
-	install_dir = "",
 	inc_dir = "usr/include",
 )
 
+worldbuilder.Submodule("linux-kernel",
+	version = linux_src.version,
+	depends = [ linux_src, "crossgcc" ], # doesn't need musl so it can start earlier
+	config_files = [ "config/linux-virtio.config" ],
+	configure = [
+		"make",
+		"-C%(linux.src_dir)s",
+		"O=%(out_dir)s",
+		"olddefconfig",
+		*cross_tools_nocc,
+		"CROSS_COMPILE=" + cross,
+		#"CC=" + cross + "gcc",
+	],
+	make = [ 
+		"make",
+		"-C%(linux.src_dir)s",
+		"O=%(out_dir)s",
+		"KBUILD_HOST=builder",
+		"KBUILD_USER=%(out_hash)s",
+		"KBUILD_BUILD_TIMESTAMP=1970-01-01",
+		"KBUILD_BUILD_VERSION=%(linux.src_hash)s",
+	],
+)

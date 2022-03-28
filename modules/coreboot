@@ -65,7 +65,7 @@ worldbuilder.Submodule("coreboot_blobs-" + coreboot_version,
 
 coreboot = worldbuilder.Submodule("coreboot-" + board,
 	version = coreboot_version,
-	depends = [ "coreboot_src-" + coreboot_version, "coreboot_blobs-" + coreboot_version ],
+	depends = [ "linux-kernel", "coreboot_src-" + coreboot_version, "coreboot_blobs-" + coreboot_version ],
 	config_files = [ "config/coreboot-" + board + ".config" ],
 	configure = [
 		"make",
