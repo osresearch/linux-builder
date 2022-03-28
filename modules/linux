@@ -19,10 +19,10 @@ linux_src = worldbuilder.Submodule("linux",
 	inc_dir = "usr/include",
 )
 
-worldbuilder.Submodule("linux-qemu",
+worldbuilder.Submodule("linux-" + kernel,
 	version = linux_src.version,
 	depends = [ linux_src, "crossgcc" ], # doesn't need musl so it can start earlier
-	config_files = [ "config/linux-virtio.config" ],
+	config_files = [ "config/linux-" + kernel + ".config" ],
 	configure = [
 		"make",
 		"-C%(linux.src_dir)s",

@@ -12,6 +12,9 @@ from worldbuilder import extend, zero_hash, sha256hex, global_mods, exists, mkdi
 
 from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, musl
 
+board = 'qemu'
+kernel = 'virtio'
+
 for modname in glob("modules/*"):
 	try:
 		with open(modname, "r") as f:
@@ -58,7 +61,6 @@ class Initrd(worldbuilder.Submodule):
 		self.patched = True
 		return self
 	def configure(self, check=False):
-		print("---- initrd configure ----")
 		# update our output hash based on our dependencies and our files
 		self.src_hash = sha256hex((self.filename + "-" + self.version).encode('utf-8'))
 		files_hash = zero_hash
@@ -121,7 +123,7 @@ class Initrd(worldbuilder.Submodule):
 		self.built = True
 		return self
 
-initrd = Initrd("qemu",
+initrd = Initrd(board,
 	depends = [ "fbwhiptail", "dropbear", "cryptsetup", "lvm2", "flashrom", "pciutils", "busybox", "kexec" ],
 	files = {
 		"/bin": [
@@ -154,7 +156,7 @@ initrd = Initrd("qemu",
 if len(sys.argv) > 1:
 	deps = sys.argv[1:]
 else:
-	deps = [ "coreboot-qemu" ]
+	deps = [ "coreboot-" + board ]
 
 
 build = worldbuilder.Builder(deps)

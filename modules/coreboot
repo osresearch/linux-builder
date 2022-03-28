@@ -18,12 +18,16 @@ versions = {
 	"4.15": {
 		"tarhash": "20e6aaa6dd0eaec7753441c799711d1b4630e3ca709536386f2242ac2c8a1ec5",
 		"blobs_hash": "c0e2d8006da226208ba274a44895d102cb2879cf139cc67bba5f62e67b871f6d",
-		"extra_flags": "-fdebug-prefix-map=$(pwd)=heads -gno-record-gcc-switches -Wno-error=packed-not-aligned -Wno-error=address-of-packed-member",
+		"extra_flags": "-fdebug-prefix-map=$(pwd)=heads -gno-record-gcc-switches -Wno-error=packed-not-aligned -Wno-error=address-of-packed-member -Wno-error",
 	},
 }
 
 coreboot_version = "4.15"
-board = "qemu"
+if not board:
+	board = "qemu"
+if not kernel:
+	kernel = board
+
 default_extra_flags = "-fdebug-prefix-map=$(pwd)=heads -gno-record-gcc-switches -Wno-error=packed-not-aligned"
 
 config = versions[coreboot_version]
@@ -64,11 +68,16 @@ worldbuilder.Submodule("coreboot_blobs-" + coreboot_version,
 
 
 initrd_file = '%(initrd-'+board+'.install_dir)s/initrd.cpio.xz'
-kernel_file = '%(linux-'+board+'.install_dir)s/bzImage'
+kernel_file = '%(linux-'+kernel+'.install_dir)s/bzImage'
 
 coreboot = worldbuilder.Submodule("coreboot-" + board,
 	version = coreboot_version,
-	depends = [ "initrd-"+board, "linux-" + board, "coreboot_src-" + coreboot_version, "coreboot_blobs-" + coreboot_version ],
+	depends = [
+		"initrd-"+board,
+		"linux-" + kernel,
+		"coreboot_src-" + coreboot_version,
+		"coreboot_blobs-" + coreboot_version,
+	],
 	config_files = [ "config/coreboot-" + board + ".config" ],
 	dep_files = [ initrd_file, kernel_file ],
 	config_append = [
