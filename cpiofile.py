@@ -216,7 +216,7 @@ class CPIO:
 	def tobytes(self, compressed=False):
 		image = b''
 		for dst in sorted(self.files):
-			print(dst)
+			#print(dst)
 			f = self.files[dst]
 
 			# align before starting the next file
