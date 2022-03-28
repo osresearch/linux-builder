@@ -1,0 +1,164 @@
+# CONFIG_COREBOOT_ROM			?= coreboot.rom
+# CONFIG_COREBOOT_BOOTBLOCK	?=
+#	coreboot_depends := $(if $(CONFIG_PURISM_BLOBS), purism-blobs)
+
+versions = {
+	"4.8.1": {
+		"tarhash": "f0ddf4db0628c1fe1e8348c40084d9cbeb5771400c963fd419cda3995b69ad23",
+		"blobs_hash": "18aa509ae3af005a05d7b1e0b0246dc640249c14fc828f5144b6fd20bb10e295",
+	},
+	"4.11": {
+		"tarhash": "97fd859b4c39a25534fe33c30eb86e54a233952e08a024c55858d11598a8ad87",
+		"blobs_hash": "aa7855c5bd385b3360dadc043ea6bc93f564e6e4840d9b3ee5b9e696bbd055db",
+	},
+	"4.13": {
+		"tarhash": "4779da645a25ddebc78f1bd2bd0b740fb1e6479572648d4650042a2b9502856a",
+		"blobs_hash": "060656b46a7859d038ddeec3f7e086e85f146a50b280c4babec23c1188264dc8",
+	},
+	"4.15": {
+		"tarhash": "20e6aaa6dd0eaec7753441c799711d1b4630e3ca709536386f2242ac2c8a1ec5",
+		"blobs_hash": "c0e2d8006da226208ba274a44895d102cb2879cf139cc67bba5f62e67b871f6d",
+		"extra_flags": "-fdebug-prefix-map=$(pwd)=heads -gno-record-gcc-switches -Wno-error=packed-not-aligned -Wno-error=address-of-packed-member",
+	},
+}
+
+version = "4.15"
+board = "qemu"
+default_extra_flags = "-fdebug-prefix-map=$(pwd)=heads -gno-record-gcc-switches -Wno-error=packed-not-aligned"
+
+config = versions[version]
+
+libgcc="%(binutils32.lib_dir)s/gcc/i386-linux-musl/%(gcc32.version)s/libgcc.a"
+
+extra_env = [
+	"-C%(src_dir)s",
+	"V=1",
+	"obj=%(out_dir)s/" + board,
+	"DOTCONFIG=%(out_dir)s/.config",
+	"IASL=%(iasl.bin_dir)s/iasl",
+	"CC_x86_32=%(binutils32.bin_dir)s/i386-linux-musl-gcc",
+	"LD_x86_32=%(binutils32.bin_dir)s/i386-linux-musl-ld",
+	"OPT_LIBS=" + libgcc,
+	"XGCCPATH=%(binutils32.bin_dir)s",
+	"CFLAGS_x86_32=" + config.get("extra_flags", default_extra_flags),
+	#*cross_tools32_nocc,
+]
+
+worldbuilder.Submodule("coreboot",
+	depends = [ "linux", "gcc32", "iasl" ],
+	url = "https://www.coreboot.org/releases/coreboot-%(version)s.tar.xz",
+	version = version,
+	tarhash = config["tarhash"],
+	config_files = [ "config/coreboot-" + board + ".config" ],
+	patches = glob("patches/coreboot-"+ version + "/*"),
+	configure = [
+		"make",
+		"olddefconfig",
+		*extra_env,
+#	&& echo 'CONFIG_LOCALVERSION="Heads-$(HEADS_GIT_VERSION)"' >> $(build)/$(coreboot_dir)/.config \
+#	&& echo 'CONFIG_MAINBOARD_SMBIOS_PRODUCT_NAME="$(BOARD)"' >> $(build)/$(coreboot_dir)/.config \
+	],
+	make = [
+		"make",
+		*extra_env,
+	],
+)
+
+"""
+
+COREBOOT_IASL="$(build)/$(coreboot_base_dir)/util/crossgcc/xgcc/bin/iasl"
+
+# coreboot is built with the 32-bit compiler; ideally we could use the same
+# x86_64-linux-musl -m32 to build it, but this causes some link errors that need
+# to be tracked down.
+#	CROSS="$(CROSS)" \
+
+coreboot_target := \
+	-C "$(build)/$(coreboot_base_dir)" \
+	obj="$(build)/$(coreboot_dir)" \
+	CROSS="$(dir $(CROSS))i386-linux-musl-" \
+	IASL="$(COREBOOT_IASL)" \
+	DOTCONFIG="$(build)/$(coreboot_dir)/.config" \
+	BUILD_TIMELESS=1 \
+	CFLAGS_x86_32="$(EXTRA_FLAGS)" \
+	CFLAGS_x86_64="$(EXTRA_FLAGS)" \
+	$(MAKE_JOBS)
+
+coreboot_output := $(CONFIG_COREBOOT_ROM)
+coreboot_output += $(CONFIG_COREBOOT_BOOTBLOCK)
+coreboot_depend += linux initrd $(musl_dep)
+
+COREBOOT_TOOLCHAIN="$(build)/$(coreboot_base_dir)/.xcompile"
+$(COREBOOT_TOOLCHAIN): $(build)/$(coreboot_base_dir)/.canary
+	$(MAKE) -C "$(build)/$(coreboot_base_dir)" CPUS=$(CPUS) crossgcc-i386
+
+$(build)/$(coreboot_dir)/.configured: $(COREBOOT_TOOLCHAIN)
+
+# Force a rebuild if the inputs have changed
+$(build)/$(coreboot_dir)/.build: \
+	$(build)/$(BOARD)/bzImage \
+	$(build)/$(BOARD)/initrd.cpio.xz \
+
+# This produces a ROM image that is written with the flashrom program
+ifneq ($(CONFIG_COREBOOT),)
+
+$(build)/$(BOARD)/$(CB_OUTPUT_FILE): $(build)/$(coreboot_dir)/.build
+	# Use coreboot.rom, because custom output files might not be processed by cbfstool
+	"$(build)/$(coreboot_dir)/cbfstool" "$(dir $<)coreboot.rom" print
+	$(call do-copy,$(dir $<)$(CONFIG_COREBOOT_ROM),$@)
+	@touch $@   # update the time stamp
+
+ifneq ($(CONFIG_COREBOOT_BOOTBLOCK),)
+$(build)/$(BOARD)/$(CB_BOOTBLOCK_FILE): $(build)/$(coreboot_dir)/.build
+	$(call do-copy,$(dir $<)$(CONFIG_COREBOOT_BOOTBLOCK),$@)
+	@touch $@   # update the time stamp
+endif
+
+endif
+
+#
+# Helpful target for reconfiguring the coreboot target
+#
+coreboot.menuconfig:
+	$(MAKE) \
+		-C "$(build)/$(coreboot_base_dir)" \
+		DOTCONFIG="$(build)/$(coreboot_dir)/.config" \
+		menuconfig
+
+# The config file in the repo is stored as a "defconfig" format
+# which only includes the options that have changed from the defaults.
+coreboot.saveconfig:
+	$(MAKE) \
+		-C "$(build)/$(coreboot_base_dir)" \
+		DOTCONFIG="$(build)/$(coreboot_dir)/.config" \
+		DEFCONFIG="$(pwd)/$(CONFIG_COREBOOT_CONFIG)" \
+		savedefconfig
+
+
+# if we are not building from a git checkout,
+# we must also download the coreboot-blobs tree
+ifneq "$(coreboot_version)" "git"
+
+coreboot_depends += coreboot-blobs
+modules-y += coreboot-blobs
+
+coreboot-blobs_version := $(coreboot_version)
+coreboot-blobs_tar := coreboot-blobs-$(coreboot-blobs_version).tar.xz
+coreboot-blobs_url := https://www.coreboot.org/releases/$(coreboot-blobs_tar)
+
+ifeq "$(CONFIG_COREBOOT_VERSION)" "4.8.1"
+	coreboot-blobs_tar_opt := --strip 3
+	coreboot-blobs_dir := coreboot-$(coreboot-blobs_version)/3rdparty/blobs
+else
+	coreboot-blobs_tar_opt := --strip 2
+	coreboot-blobs_dir := coreboot-$(coreboot-blobs_version)/3rdparty
+endif
+
+## there is nothing to build for the blobs, this should be
+## made easier to make happen
+coreboot-blobs_output := .built
+coreboot-blobs_configure := echo -e 'all:\n\ttouch .built' > Makefile
+
+endif
+endif
+"""

@@ -1,0 +1,12 @@
+diff -u --recursive coreboot-4.15/src/southbridge/intel/common/rcba_pirq.c d0cfc7920dbe4059/src/southbridge/intel/common/rcba_pirq.c
+--- coreboot-4.15/src/southbridge/intel/common/rcba_pirq.c	2021-11-09 15:49:46.000000000 +0000
++++ d0cfc7920dbe4059/src/southbridge/intel/common/rcba_pirq.c	2022-03-28 08:22:01.229011959 +0000
+@@ -85,7 +85,7 @@
+ 		pin_irq_map[map_count].apic_gsi = 16 + pirq_idx(pirq);
+ 		printk(BIOS_SPEW, "ACPI_PIRQ_GEN: %s: pin=%d pirq=%ld\n",
+ 		       dev_path(dev), int_pin - PCI_INT_A,
+-		       pirq_idx(pin_irq_map[map_count].pic_pirq));
++		       (long) pirq_idx(pin_irq_map[map_count].pic_pirq));
+ 		map_count++;
+ 	}
+ 

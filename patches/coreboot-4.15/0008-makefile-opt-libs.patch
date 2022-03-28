@@ -1,0 +1,35 @@
+diff -u --recursive coreboot-4.15/src/arch/x86/Makefile.inc d0cfc7920dbe4059/src/arch/x86/Makefile.inc
+--- coreboot-4.15/src/arch/x86/Makefile.inc	2021-11-09 15:49:46.000000000 +0000
++++ d0cfc7920dbe4059/src/arch/x86/Makefile.inc	2022-03-28 10:25:28.405176193 +0000
+@@ -63,7 +63,7 @@
+ 
+ $$(objcbfs)/$(1).debug: $$$$($(1)-libs) $$$$($(1)-objs)
+ 	@printf "    LINK       $$(subst $$(obj)/,,$$(@))\n"
+-	$$(LD_$(1)) $$(LDFLAGS_$(1)) -o $$@ -L$$(obj) $$(COMPILER_RT_FLAGS_$(1)) --whole-archive --start-group $$(filter-out %.ld,$$($(1)-objs)) $$($(1)-libs) --no-whole-archive $$(COMPILER_RT_$(1)) --end-group -T $(call src-to-obj,$(1),$(CONFIG_MEMLAYOUT_LD_FILE)) --oformat $(2)
++	$$(LD_$(1)) $$(LDFLAGS_$(1)) -o $$@ -L$$(obj) $$(COMPILER_RT_FLAGS_$(1)) --whole-archive --start-group $$(filter-out %.ld,$$($(1)-objs)) $$($(1)-libs) --no-whole-archive $$(COMPILER_RT_$(1)) --end-group -T $(call src-to-obj,$(1),$(CONFIG_MEMLAYOUT_LD_FILE)) --oformat $(2) $(OPT_LIBS)
+ 	-LANG=C LC_ALL= $$(OBJCOPY_$(1)) --only-section .illegal_globals $$(@) $$(objcbfs)/$(1)_null.offenders >/dev/null 2>&1
+ 	if [ -z "$$$$($$(NM_$(1)) $$(objcbfs)/$(1)_null.offenders 2>&1 | grep 'no symbols')" ];then \
+ 		echo "Forbidden global variables in $(1):"; \
+@@ -208,7 +208,7 @@
+ 
+ $(objcbfs)/postcar.debug: $$(postcar-objs)
+ 	@printf "    LINK       $(subst $(obj)/,,$(@))\n"
+-	$(LD_postcar) $(LDFLAGS_postcar) -o $@ -L$(obj) $(COMPILER_RT_FLAGS_postcar) --whole-archive --start-group $(filter-out %.ld,$^) --no-whole-archive $(COMPILER_RT_postcar) --end-group -T $(call src-to-obj,postcar,$(CONFIG_MEMLAYOUT_LD_FILE))
++	$(LD_postcar) $(LDFLAGS_postcar) -o $@ -L$(obj) $(COMPILER_RT_FLAGS_postcar) --whole-archive --start-group $(filter-out %.ld,$^) --no-whole-archive $(COMPILER_RT_postcar) --end-group -T $(call src-to-obj,postcar,$(CONFIG_MEMLAYOUT_LD_FILE)) $(OPT_LIBS)
+ 
+ $(objcbfs)/postcar.elf: $(objcbfs)/postcar.debug.rmod
+ 	cp $< $@
+@@ -289,11 +289,11 @@
+ 
+ $(objcbfs)/ramstage.debug: $(objgenerated)/ramstage.o $(call src-to-obj,ramstage,$(CONFIG_MEMLAYOUT_LD_FILE))
+ 	@printf "    CC         $(subst $(obj)/,,$(@))\n"
+-	$(LD_ramstage) $(CPPFLAGS) $(LDFLAGS_ramstage) -o $@ -L$(obj) $< -T $(call src-to-obj,ramstage,$(CONFIG_MEMLAYOUT_LD_FILE))
++	$(LD_ramstage) $(CPPFLAGS) $(LDFLAGS_ramstage) -o $@ -L$(obj) $< -T $(call src-to-obj,ramstage,$(CONFIG_MEMLAYOUT_LD_FILE)) $(OPT_LIBS)
+ 
+ $(objgenerated)/ramstage.o: $$(ramstage-objs) $(COMPILER_RT_ramstage) $$(ramstage-libs)
+ 	@printf "    CC         $(subst $(obj)/,,$(@))\n"
+-	$(LD_ramstage) $(LD_MACHINE) -r -o $@ $(COMPILER_RT_FLAGS_ramstage) --whole-archive --start-group $(filter-out %.ld,$(ramstage-objs)) $(ramstage-libs) --no-whole-archive $(COMPILER_RT_ramstage) --end-group
++	$(LD_ramstage) $(LD_MACHINE) -r -o $@ $(COMPILER_RT_FLAGS_ramstage) --whole-archive --start-group $(filter-out %.ld,$(ramstage-objs)) $(ramstage-libs) --no-whole-archive $(COMPILER_RT_ramstage) --end-group $(OPT_LIBS)
+ 
+ endif # CONFIG_ARCH_RAMSTAGE_X86_32 / CONFIG_ARCH_RAMSTAGE_X86_64
+ 
