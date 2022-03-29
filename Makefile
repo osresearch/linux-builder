@@ -6,3 +6,6 @@ world:
 	+./helloworld.py
 heads:
 	+./heads-builder.py
+
+jump:
+	+./jump-builder.py
