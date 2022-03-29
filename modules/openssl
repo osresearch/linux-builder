@@ -1,0 +1,24 @@
+worldbuilder.Submodule("openssl",
+	depends = [ "zlib", "linux", "gcc" ],
+	version = "1.1.1n",
+	url = "https://www.openssl.org/source/openssl-%(version)s.tar.gz",
+	tarhash = "40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a",
+	dirty = True,
+	configure = [ "bash", "-c", " ".join([
+		"CFLAGS=" + quote(worldbuilder.prefix_map),
+		*cross_tools,
+		"%(src_dir)s/Configure",
+		"--prefix=%(install_dir)s",
+		"--with-zlib-include=%(zlib.inc_dir)s",
+		"--with-zlib-lib=%(zlib.lib_dir)s",
+		#"--cross-compile-prefix=" + cross,
+		"linux-x86_64",
+		#"-I%(musl.inc_dir)s",
+		"-I%(linux.inc_dir)s",
+		#"-L%(binutils.lib_dir)s/gcc/"+target_arch+"/%(gcc.version)s",
+	]) ],
+	make = [
+		[ "make" ],
+		[ "make", "install" ], # this errors if combined with the make
+	],
+)
