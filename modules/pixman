@@ -9,7 +9,7 @@ worldbuilder.Submodule("pixman",
 		"--host=x86_64-linux-gnu",
 		"--disable-gtk",
 		*cross_tools,
-		"LDFLAGS=-L%(libpng.lib_dir)s -L%(zlib.lib_dir)s",
+		"LDFLAGS=-L%(libpng.lib_dir)s -L%(zlib.lib_dir)s " + worldbuilder.prefix_map,
 	],
 	make = [ "make", "install" ],
 )

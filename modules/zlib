@@ -8,8 +8,9 @@ worldbuilder.Submodule('zlib',
 		# TODO: add way to pass env rather than invoking bash
 		"bash", "-c", " ".join([
 			*cross_tools,
+			"CFLAGS="+quote(worldbuilder.prefix_map),
 			worldbuilder.configure_cmd,
-			"--prefix=%(install_dir)s",
+			"--prefix=%(install_dir)s"
 		]),
 	],
 	make = [ "make", *cross_tools ],

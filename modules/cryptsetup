@@ -14,7 +14,7 @@ worldbuilder.Submodule("cryptsetup",
 		"--enable-cryptsetup-reencrypt",
 		"--with-crypto_backend=kernel",
 		*cross_tools,
-		"CFLAGS=-I%(util-linux.inc_dir)s -I%(lvm2.inc_dir)s -I%(linux.inc_dir)s -I%(popt.inc_dir)s",
+		"CFLAGS=-I%(util-linux.inc_dir)s -I%(lvm2.inc_dir)s -I%(linux.inc_dir)s -I%(popt.inc_dir)s " + worldbuilder.prefix_map,
 		"LDFLAGS=-L%(util-linux.lib_dir)s -L%(popt.lib_dir)s",
 		"DEVMAPPER_CFLAGS=-I%(lvm2.inc_dir)s",
 		"DEVMAPPER_LIBS=-L%(lvm2.lib_dir)s -ldevmapper",
@@ -22,7 +22,7 @@ worldbuilder.Submodule("cryptsetup",
 # but after building, replace prefix so that they will be installed
 # in the correct directory.
 	make = [
-		[ "make", "all" ],
+		[ "make", "all", "V=1" ],
 		[ "make", "install", "prefix=%(install_dir)s", ]
 	],
 #cryptsetup_output := \

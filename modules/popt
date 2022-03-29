@@ -7,6 +7,7 @@ worldbuilder.Submodule("popt",
 		worldbuilder.configure_cmd,
 		"--prefix=%(install_dir)s",
 		"--host=x86_64-linux-gnu",
+		"CFLAGS=" + worldbuilder.prefix_map,
 		*cross_tools,
 	],
 	make = [

@@ -1,10 +1,12 @@
+# this is a host_cc, not a cross compiled program
+
 worldbuilder.Submodule("iasl",
 	depends = [ "crossgcc" ],
 	version = "20210331",
 	url = "https://acpica.org/sites/acpica/files/acpica-unix2-%(version)s.tar.gz",
 	tarhash = "3dab326c262d4f3eaf380bbbbd7aa8c2eb5f2697f7821659222cf898d8be28c1",
 	dirty = True, # writes into a ./obj directory
-	patches = [ "patches/acpica-unix2-20210331_iasl.patch" ],  # this adds a circular coreboot dep
+	patches = [ "patches/acpica-unix2-20210331_iasl.patch" ],
 	configure = [ "true" ],
 	make = [ "make",
 		"OPT_CFLAGS=-O -D_FORTIFY_SOURCE=2 -D COREBOOT_TOOLCHAIN_VERSION='\"coreboot toolchain v%(crossgcc.version)s\"'",

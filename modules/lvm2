@@ -27,14 +27,14 @@ worldbuilder.Submodule("lvm2",
 		"--disable-cache_check_needs_check",
 		"--disable-thin_check_needs_check",
 		"--with-cluster=none",
-		"CFLAGS=-fPIC -I%(linux.inc_dir)s",
+		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 		*cross_tools,
 	],
 	# hack around their generated symbol stuff
 	make = [ [
 		"make", # not sure why LIB_SUFFIX is not defined in the cross build
 		"all",
-		"CFLAGS=-fPIC -I%(linux.inc_dir)s",
+		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 		*cross_tools,
 		], [
 		"make",

@@ -50,6 +50,13 @@ kbuild_make = [
 
 configure_cmd = "%(src_dir)s/configure"
 
+# Try to remove any absolute paths and things that make reproducibility hard
+prefix_map = "-gno-record-gcc-switches" \
+	+ " -ffile-prefix-map=%(src_dir)s=%(name)s-%(version)s" \
+	+ " -ffile-prefix-map=%(out_dir)s=/build" \
+	+ " -ffile-prefix-map=%(install_dir)s=/" \
+
+
 # global list of modules; names must be unique
 global_mods = {}
 
@@ -72,7 +79,7 @@ def system(*s, cwd=None, log=None):
 		print(cwd, s)
 
 	if log:
-		logfile = open(log, "w+")
+		logfile = open(log, "a+")
 		print("cd " + os.path.abspath(cwd), file=logfile)
 		print(*s, file=logfile)
 		logfile.flush()

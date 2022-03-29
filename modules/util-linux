@@ -18,7 +18,7 @@ worldbuilder.Submodule("util-linux",
 		"--enable-libuuid",
 		"--enable-libblkid",
 		*cross_tools,
-		"CFLAGS=-I%(linux.inc_dir)s",
+		"CFLAGS=-I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 	],
 	make = [ "make", "install", "V=1" ],
 )

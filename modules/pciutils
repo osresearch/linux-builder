@@ -23,7 +23,7 @@ worldbuilder.Submodule("pciutils",
 		"IDSDIR=/",
 		"PREFIX=/",
 		*cross_tools,
-		"CFLAGS=-fpic -I%(linux.inc_dir)s -I%(zlib.inc_dir)s",
+		"CFLAGS=-fpic -I%(linux.inc_dir)s -I%(zlib.inc_dir)s " + worldbuilder.prefix_map,
 		"LDFLAGS=-L%(zlib.lib_dir)s -lz",
 		], [
 		"make",

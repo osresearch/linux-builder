@@ -16,7 +16,8 @@ worldbuilder.Submodule("fbwhiptail",
 		+ " -L%(cairo.lib_dir)s"
 		+ " -L%(pixman.lib_dir)s"
 		+ " -L%(libpng.lib_dir)s"
-		+ " -L%(zlib.lib_dir)s",
+		+ " -L%(zlib.lib_dir)s"
+		+ " " + worldbuilder.prefix_map,
 	],
 )
 

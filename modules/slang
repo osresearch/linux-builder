@@ -13,6 +13,7 @@ worldbuilder.Submodule("slang",
 		"--with-png=no",
 		"--with-pcre=no",
 		"--with-onig=no",
+		"CFLAGS=" + worldbuilder.prefix_map,
 		*cross_tools,
 	],
 	make = [
