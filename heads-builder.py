@@ -8,6 +8,7 @@ import os
 import sys
 from glob import glob
 import traceback
+from shlex import quote
 
 from worldbuilder import extend, zero_hash, sha256hex, global_mods, exists, mkdir, writefile
 
@@ -36,6 +37,7 @@ initrdfile = initrd.Initrd(board,
 		"pciutils",
 		"busybox",
 		"kexec",
+		"openssh",
 	],
 	files = [
 		[ "/bin",
