@@ -102,16 +102,18 @@ bison = worldbuilder.Submodule("bison",
 cross = "%(binutils.install_dir)s/bin/" + target_arch + "-"
 cross32 = "%(binutils32.install_dir)s/bin/" + target_arch32 + "-"
 
+tools = "ar as ld nm ranlib objcopy objdump strip".split(" ")
+
 # these are for gcc's special "FOO_FOR_TARGET" instead of "FOO"
 gcc_cross_tools = [x.upper() + "_FOR_TARGET=" + cross + x
-	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
+	for x in tools]
 gcc_cross32_tools = [x.upper() + "_FOR_TARGET=" + cross32 + x
-	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
+	for x in tools]
 
 cross_tools_nocc = [x.upper() + "=" + cross + x
-	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
+	for x in tools]
 cross_tools32_nocc = [x.upper() + "=" + cross32 + x
-	for x in "ar as ld nm ranlib objcopy objdump strip".split(" ")]
+	for x in tools]
 
 cross_tools = [
 	"CC=%(musl.install_dir)s/bin/musl-gcc",
