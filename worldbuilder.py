@@ -24,9 +24,10 @@ import requests
 import hashlib
 import subprocess
 import traceback
+import time
 from tempfile import NamedTemporaryFile
 from threading import Thread
-from time import sleep
+from time import sleep, asctime
 from graphlib import TopologicalSorter  # requires python3.9
 
 verbose = 1
@@ -60,6 +61,9 @@ prefix_map = "-gno-record-gcc-switches" \
 # global list of modules; names must be unique
 global_mods = {}
 
+def now():
+	return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
 def sha256hex(data):
 	#print("hashing %d bytes" % (len(data)), data)
 	if type(data) is str:
@@ -80,6 +84,7 @@ def system(*s, cwd=None, log=None):
 
 	if log:
 		logfile = open(log, "a+")
+		print("----- " + now() + " -----", file=logfile)
 		print("cd " + os.path.abspath(cwd), file=logfile)
 		print(*s, file=logfile)
 		logfile.flush()
@@ -94,11 +99,11 @@ def system(*s, cwd=None, log=None):
 		logfile.close()
 
 def die(*s):
-	print(*s, file=sys.stderr)
+	print(now(), *s, file=sys.stderr)
 	exit(1)
-def info(s):
+def info(*s):
 	if verbose > 0:
-		print(s, file=sys.stderr)
+		print(now(), *s)
 
 
 def exists(*paths):
@@ -205,11 +210,11 @@ class Submodule:
 		if self.built:
 			return "BUILT"
 		if self.configured:
-			return "CONFIGURED"
+			return "CONFIGD"
 		if self.patched:
 			return "PATCHED"
 		if self.unpacked:
-			return "UNPACKED"
+			return "UNPACKD"
 		if self.fetched:
 			return "FETCHED"
 		return "NOSTATE"
@@ -378,6 +383,8 @@ class Submodule:
 		if check:
 			return self
 
+		mkdir(self.out_dir)
+
 		for (patch_file,patch) in zip(self.patch_files, self.patches):
 			info("PATCH " + self.src_dir + ": " + patch_file)
 
@@ -388,7 +395,8 @@ class Submodule:
 				system("patch",
 					"--input", tmp.name,
 					"--directory", self.src_dir,
-					"-p%d" % (self.patch_level)
+					"-p%d" % (self.patch_level),
+					log=os.path.join(self.out_dir, "patch-log")
 				)
 
 		writefile(patch_canary, b'')
@@ -513,7 +521,7 @@ class Submodule:
 		if not self.build_required(check, force, build_canary):
 			return self
 
-		print("BUILD " + self.name + ": " + self.out_dir)
+		info("BUILD " + self.name + ": " + self.out_dir)
 
 		for commands in self.make_commands:
 			cmds = []
@@ -546,14 +554,14 @@ class Builder:
 		building_list = ','.join(self.building)
 		built_list = ','.join(self.built)
 		failed_list = ','.join(self.failed)
-		print(
+		print(now(),
 			"building=[" + building_list
 			+ "] waiting=[" +  wait_list
 			+ "] done=[" + built_list 
 			+ "]"
 		)
 		if len(self.failed) > 0:
-			print("failed=" + failed_list, file=sys.stderr)
+			print(now(), "failed=" + failed_list, file=sys.stderr)
 			return False
 
 		return True
@@ -569,10 +577,10 @@ class Builder:
 				self.built[mod.name] = mod
 			else:
 				self.failed[mod.name] = mod
-				print(mod.name + ": FAILED", file=sys.stderr)
+				print(now(), mod.name + ": FAILED", file=sys.stderr)
 
 		except Exception as e:
-			print(mod.name + ": FAILED. Logs are in", mod.out_dir, file=sys.stderr)
+			print(now(), mod.name + ": FAILED. Logs are in", mod.out_dir, file=sys.stderr)
 			print(traceback.format_exc(), file=sys.stderr)
 			self.failed[mod.name] = mod
 
@@ -610,7 +618,7 @@ class Builder:
 				self.mods.append(dep)
 
 		ordered_mods = [*ts.static_order()]
-		print([x.name for x in ordered_mods])
+		#print([x.name for x in ordered_mods])
 
 		for mod in ordered_mods:
 			mod.build(check=True)
@@ -618,12 +626,13 @@ class Builder:
 				self.built[mod.name] = mod
 			else:
 				self.waiting[mod.name] = mod
+			print(mod.state() + " " + mod.name + ": " + mod.out_dir)
 
 		#self.report()
-		for modname, mod in self.waiting.items():
-			print(mod.state() + " " + modname + ": " + mod.out_dir)
-		for modname, mod in self.built.items():
-			print(mod.state() + " " + modname + ": " + mod.out_dir)
+#		for modname, mod in self.built.items():
+#			print(mod.state() + " " + mod.name + ": " + mod.out_dir)
+#		for modname, mod in self.waiting.items():
+#			print(mod.state() + " " + mod.name + ": " + mod.out_dir)
 
 
 	def build_all(self):
