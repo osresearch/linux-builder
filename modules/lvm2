@@ -1,4 +1,5 @@
 worldbuilder.Submodule("lvm2",
+	depends = [ "util-linux", "gcc" ],
 	version = "2.02.168",
 	url = "https://mirrors.kernel.org/sourceware/lvm2/LVM2.%(version)s.tgz",
 	tarhash = "23a3d1cddd41b3ef51812ebf83e9fa491f502fe74130d4263be327a91914660d",
@@ -29,21 +30,19 @@ worldbuilder.Submodule("lvm2",
 		"CFLAGS=-fPIC -I%(linux.inc_dir)s",
 		*cross_tools,
 	],
+	# hack around their generated symbol stuff
 	make = [ [
 		"make", # not sure why LIB_SUFFIX is not defined in the cross build
 		"all",
-		"DESTDIR=%(install_dir)s",
 		"CFLAGS=-fPIC -I%(linux.inc_dir)s",
 		*cross_tools,
 		], [
 		"make",
 		"install_device-mapper",
-		#"DESTDIR=%(install_dir)s",
-		"CFLAGS=-fPIC -I%(linux.inc_dir)s",
 		*cross_tools,
 	] ],
+	bin_dir = "sbin",
 #lvm2_libraries := libdm/libdevmapper.so.1.02
 # lvm2_output := tools/dmsetup tools/lvm \
 # lvm2_depends := util-linux $(musl_dep)
-	depends = [ "util-linux", "gcc" ],
 )

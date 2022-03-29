@@ -133,6 +133,15 @@ diff --recursive -u clean/LVM2.2.02.168/make.tmpl.in lvm2.2.02.168/make.tmpl.in
  
  LVM_VERSION := $(shell cat $(top_srcdir)/VERSION)
  
+@@ -495,7 +495,7 @@
+ 	set -e; \
+ 	( cat $(srcdir)/.exported_symbols; \
+ 	  if test -n "$(EXPORTED_HEADER)"; then \
+-		$(CC) -E -P $(INCLUDES) $(DEFS) $(EXPORTED_HEADER) | \
++		$(CC) $(CFLAGS) -E -P $(INCLUDES) $(DEFS) $(EXPORTED_HEADER) | \
+ 		$(SED) -ne "/^typedef|}/!s/.*[ *]\($(EXPORTED_FN_PREFIX)_[a-z0-9_]*\)(.*/\1/p"; \
+ 	  fi \
+ 	) > $@
 diff --recursive -u clean/LVM2.2.02.168/tools/lvmcmdline.c lvm2.2.02.168/tools/lvmcmdline.c
 --- clean/LVM2.2.02.168/tools/lvmcmdline.c	2016-12-01 00:17:32.000000000 +0100
 +++ lvm2.2.02.168/tools/lvmcmdline.c	2020-01-09 13:23:49.057418263 +0100
