@@ -35,8 +35,9 @@ worldbuilder.Submodule("pciutils",
 		"install",
 		"install-lib",
 	],
+
 	bin_dir = "sbin",
+	bins = [ "lspci" ],
+	libs = [ "libpci.so.3.5.4" ],
 )
 
-#pciutils_output := lspci
-#pciutils_libraries := lib/libpci.so.3.5.4 ../../install/lib/libpci.so.3

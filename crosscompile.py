@@ -226,6 +226,8 @@ musl = worldbuilder.Submodule("musl",
 		"make",
 		"install",
 	],
+
+	libs = [ "libc.so" ],
 )
 
 musl32 = worldbuilder.Submodule("musl32",
@@ -247,6 +249,8 @@ musl32 = worldbuilder.Submodule("musl32",
 		"make",
 		"install",
 	],
+
+	libs = [ "libc.so" ],
 )
 
 # pick up in the cross gcc target once musl has been built so that

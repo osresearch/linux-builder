@@ -44,5 +44,5 @@ worldbuilder.Submodule("json-c",
 		"install",
 	],
 
-#json-c_libraries := build/libjson-c.so.5
+	libs = [ "libjson-c.so.5" ],
 )

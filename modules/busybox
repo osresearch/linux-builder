@@ -35,4 +35,6 @@ worldbuilder.Submodule("busybox",
 		*cross_tools,
 		busybox_cflags,
 	],
+
+	bins = [ "busybox" ],
 )

@@ -32,4 +32,6 @@ worldbuilder.Submodule("dropbear",
 		[ cross+"strip", "-o", "%(bin_dir)s/ssh", "%(bin_dir)s/dbclient" ],
 		[ cross+"strip", "-o", "%(bin_dir)s/sshd", "%(install_dir)s/sbin/dropbear" ],
 	],
+
+	bins = [ "ssh", "sshd" ],
 )

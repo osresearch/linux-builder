@@ -1,9 +1,11 @@
+# configure says "This software does not support configuring from another directory"
+
 worldbuilder.Submodule("slang",
 	depends = [ "gcc" ],
 	version = "2.3.1a",
 	url = "https://www.jedsoft.org/releases/slang/slang-%(version)s.tar.bz2",
 	tarhash = "54f0c3007fde918039c058965dffdfd6c5aec0bad0f4227192cc486021f08c36",
-	dirty = True, # configure says "This software does not support configuring from another directory"
+	dirty = True,
 	configure = [
 		worldbuilder.configure_cmd,
 		"--prefix=%(install_dir)s",
@@ -16,11 +18,13 @@ worldbuilder.Submodule("slang",
 		"CFLAGS=" + worldbuilder.prefix_map,
 		*cross_tools,
 	],
+
 	make = [
 		[ "mkdir", "-p", "src/elfobjs" ],
 		[ "make" ],
 	],
-	install = [ "make", "-j1", "install" ], # Disable parallel make for the install target
-)
 
-# slang_libraries := src/elfobjs/libslang.so.2
+	install = [ "make", "-j1", "install" ], # Disable parallel make for the install target
+
+	libs = [ "libslang.so.2" ],
+)

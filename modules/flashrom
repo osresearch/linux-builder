@@ -21,4 +21,6 @@ worldbuilder.Submodule("flashrom",
 		[ "mkdir", "-p", "%(bin_dir)s" ],
 		[ cross + "strip", "-o", "%(bin_dir)s/flashrom", "%(out_dir)s/flashrom" ],
 	],
+
+	bins = [ "flashrom" ],
 )

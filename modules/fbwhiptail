@@ -5,6 +5,7 @@ worldbuilder.Submodule("fbwhiptail",
 	tarhash = "d664cad8a5bd5354258809a642b717c46c5b7b9e797c6275b9d6494986ad0f15",
 	patches = [ "patches/fbwhiptail.patch" ],
 	dirty = True,
+
 	make = [
 		"make",
 		"fbwhiptail",
@@ -18,6 +19,8 @@ worldbuilder.Submodule("fbwhiptail",
 		+ " -L%(zlib.lib_dir)s"
 		+ " " + worldbuilder.prefix_map,
 	],
-)
 
-# fbwhiptail_output :=  fbwhiptail whiptail
+	install_dir = "",
+	bin_dir = "",
+	bins = [ "whiptail", "fbwhiptail" ],
+)

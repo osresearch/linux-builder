@@ -30,5 +30,7 @@ worldbuilder.Submodule("cairo",
 #	&& chmod 755 libtool
 
 	make = [ "make", "install" ],
+
+	libs = [ "libcairo.so.2" ],
 )
 

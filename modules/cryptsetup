@@ -27,12 +27,7 @@ worldbuilder.Submodule("cryptsetup",
 
 	bin_dir = "sbin",
 
-#cryptsetup_output := \
-#	src/.libs/cryptsetup \
-#	src/.libs/cryptsetup-reencrypt \
-#	src/.libs/veritysetup \
-#
-#cryptsetup_libraries := \
-#	lib/.libs/libcryptsetup.so.4 \
+	bins = [ "cryptsetup", "veritysetup", "cryptsetup-reencrypt" ],
+	libs = [ "libcryptsetup.so.4" ],
 
 )

@@ -3,6 +3,7 @@ worldbuilder.Submodule("pixman",
 	version = "0.34.0",
 	url = 'https://www.cairographics.org/releases/pixman-%(version)s.tar.gz',
 	tarhash = '21b6b249b51c6800dc9553b65106e1e37d0e25df942c90531d4c3997aa20a88e',
+
 	configure = [
 		worldbuilder.configure_cmd,
 		"--prefix=%(install_dir)s",
@@ -11,8 +12,11 @@ worldbuilder.Submodule("pixman",
 		*cross_tools,
 		"LDFLAGS=-L%(libpng.lib_dir)s -L%(zlib.lib_dir)s " + worldbuilder.prefix_map,
 	],
+
 	make = [ "make" ],
+
 	install = [ "make", "install" ],
+
+	libs = [ "libpixman-1.so.0" ],
 )
 
-#pixman_libraries := pixman/.libs/libpixman-1.so.0

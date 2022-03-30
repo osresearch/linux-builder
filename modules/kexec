@@ -19,5 +19,7 @@ worldbuilder.Submodule('kexec',
 	make = [ "make" ],
 	install = [ "make", "install" ],
 	bin_dir = 'sbin',
+
+	bins = [ "kexec" ],
 )
 

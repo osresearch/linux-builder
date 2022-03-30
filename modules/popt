@@ -3,6 +3,7 @@ worldbuilder.Submodule("popt",
 	version = "1.16",
 	url = "https://launchpad.net/popt/head/%(version)s/+download/popt-%(version)s.tar.gz",
 	tarhash = 'e728ed296fe9f069a0e005003c3d6b2dde3d9cad453422a10d6558616d304cc8',
+
 	configure = [
 		worldbuilder.configure_cmd,
 		"--prefix=%(install_dir)s",
@@ -10,8 +11,10 @@ worldbuilder.Submodule("popt",
 		"CFLAGS=" + worldbuilder.prefix_map,
 		*cross_tools,
 	],
-	make = [ "make", *cross_tools ],
-	install = [ "make", "install", ],
-)
 
-#popt_libraries := .libs/libpopt.so.0
+	make = [ "make", *cross_tools ],
+
+	install = [ "make", "install", ],
+
+	libs = [ "libpopt.so.0" ],
+)

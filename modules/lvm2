@@ -43,8 +43,8 @@ worldbuilder.Submodule("lvm2",
 		"DESTDIR=%(install_dir)s",
 		*cross_tools,
 	],
+
 	bin_dir = "sbin",
-#lvm2_libraries := libdm/libdevmapper.so.1.02
-# lvm2_output := tools/dmsetup tools/lvm \
-# lvm2_depends := util-linux $(musl_dep)
+	bins = [ "dmsetup", "lvm" ],
+	libs = [ "libdevmapper.so.1.02" ],
 )
