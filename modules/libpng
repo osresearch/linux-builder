@@ -12,7 +12,8 @@ worldbuilder.Submodule("libpng",
 		"LDFLAGS=-L%(zlib.lib_dir)s",
 		*cross_tools,
 	],
-	make = [ "make", "install" ],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )
 
 #libpng_libraries := .libs/libpng16.so.16

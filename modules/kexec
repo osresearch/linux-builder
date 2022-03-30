@@ -16,7 +16,8 @@ worldbuilder.Submodule('kexec',
 		*cross_tools,
 		"CFLAGS=-I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 	],
-	make = [ "make", "install" ],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 	bin_dir = 'sbin',
 )
 

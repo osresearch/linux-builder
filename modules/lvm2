@@ -31,16 +31,17 @@ worldbuilder.Submodule("lvm2",
 		*cross_tools,
 	],
 	# hack around their generated symbol stuff
-	make = [ [
+	make = [
 		"make", # not sure why LIB_SUFFIX is not defined in the cross build
 		"all",
 		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 		*cross_tools,
-		], [
+	],
+	install = [
 		"make",
 		"install_device-mapper",
 		*cross_tools,
-	] ],
+	],
 	bin_dir = "sbin",
 #lvm2_libraries := libdm/libdevmapper.so.1.02
 # lvm2_output := tools/dmsetup tools/lvm \

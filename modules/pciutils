@@ -14,7 +14,7 @@ worldbuilder.Submodule("pciutils",
 # but not during the install to make the libpci.so.3
 # reproducible.  Otherwise the build path will be embedded
 # in the library and executables.
-	make = [ [
+	make = [
 		"make",
 		"ZLIB=yes",
 		"HWDB=no",
@@ -25,7 +25,8 @@ worldbuilder.Submodule("pciutils",
 		*cross_tools,
 		"CFLAGS=-fpic -I%(linux.inc_dir)s -I%(zlib.inc_dir)s " + worldbuilder.prefix_map,
 		"LDFLAGS=-L%(zlib.lib_dir)s -lz",
-		], [
+	],
+	install = [
 		"make",
 		"ZLIB=yes",
 		"HWDB=no",
@@ -35,7 +36,7 @@ worldbuilder.Submodule("pciutils",
 		"DESTDIR=%(install_dir)s",
 		"install",
 		"install-lib",
-	] ],
+	],
 	bin_dir = "sbin",
 )
 

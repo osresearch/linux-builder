@@ -142,6 +142,7 @@ class Submodule:
 		config_append = None,
 		configure = None,
 		make = None,
+		install = None,
 		depends = None,
 		dep_files = None,
 		install_dir = None,
@@ -165,8 +166,11 @@ class Submodule:
 		self.patch_files = patches or []
 		self.config_files = config_files or []
 		self.config_append = config_append or []
+
 		self.configure_commands = configure or [ "true" ]
 		self.make_commands = make or [ "true" ]
+		self.install_commands = install or [ "true" ]
+
 		self.depends = depends or []
 		self.dep_files = dep_files or []
 		self._bin_dir = "bin" if bin_dir is None else bin_dir
@@ -198,6 +202,7 @@ class Submodule:
 		self.patched = False
 		self.configured = False
 		self.built = False
+		self.installed = False
 		self.building = False
 
 
@@ -207,17 +212,19 @@ class Submodule:
 		self.update_dict()
 
 	def state(self):
+		if self.installed:
+			return "INSTALLED"
 		if self.built:
-			return "BUILT"
+			return "BUILT    "
 		if self.configured:
-			return "CONFIGD"
+			return "CONFIGED "
 		if self.patched:
-			return "PATCHED"
+			return "PATCHED  "
 		if self.unpacked:
-			return "UNPACKD"
+			return "UNPACKED "
 		if self.fetched:
-			return "FETCHED"
-		return "NOSTATE"
+			return "FETCHED  "
+		return "NOSTATE??"
 
 	def format(self, cmd):
 		try:
@@ -303,7 +310,7 @@ class Submodule:
 			print(url + ": failed!", r.text, file=sys.stderr)
 			return False
 			
-		info("FETCH " + self.name + ": fetching")
+		info("FETCH   " + self.name + ": fetching")
 		data = r.content
 
 		if self.tarhash is not None:
@@ -355,7 +362,7 @@ class Submodule:
 
 		mkdir(self.src_dir)
 
-		info("UNPACK " + self.name + ": " + self.tar_file + " -> " + self.src_dir)
+		info("UNPACK  " + self.name + ": " + self.tar_file + " -> " + self.src_dir)
 		system("tar",
 			"-xf", self.tar_file,
 			"-C", self.src_dir,
@@ -386,7 +393,7 @@ class Submodule:
 		mkdir(self.out_dir)
 
 		for (patch_file,patch) in zip(self.patch_files, self.patches):
-			info("PATCH " + self.src_dir + ": " + patch_file)
+			info("PATCH   " + self.src_dir + ": " + patch_file)
 
 			with NamedTemporaryFile() as tmp:
 				tmp.write(patch)
@@ -403,16 +410,39 @@ class Submodule:
 		self.patched = True
 		return self
 
-	def update_hashes(self, config_hash):
-		# ensure that there is a list of make commands
+	def update_hashes(self, config_file_hash):
+		# ensure that there is a list of make, and install commands
+		if type(self.configure_commands[0]) == str:
+			self.configure_commands = [ self.configure_commands ]
 		if type(self.make_commands[0]) == str:
 			self.make_commands = [ self.make_commands ]
+		if type(self.install_commands[0]) == str:
+			self.install_commands = [ self.install_commands ]
+
+		config_hash = zero_hash
+		for commands in self.configure_commands:
+			cmd_hash = extend(None, commands)
+			config_hash = extend(config_hash, cmd_hash)
+
+		config_hash = extend(config_hash, [
+			self._install_dir,
+			self._inc_dir,
+			self._lib_dir,
+			self._bin_dir,
+			"dirty-tree" if self.dirty else "clean-tree",
+			*self.dep_files,
+		])
+
 		make_hash = zero_hash
 		for commands in self.make_commands:
 			cmd_hash = extend(None, commands)
 			make_hash = extend(make_hash, cmd_hash)
+		install_hash = zero_hash
+		for commands in self.install_commands:
+			cmd_hash = extend(None, commands)
+			install_hash = extend(install_hash, cmd_hash)
 
-		new_out_hash = extend(self.src_hash, [config_hash, make_hash])
+		new_out_hash = extend(self.src_hash, [config_file_hash, config_hash, make_hash, install_hash])
 
 		# and the output hash of the direct dependencies
 		for dep in self.depends:
@@ -436,6 +466,17 @@ class Submodule:
 
 		self.update_dict()
 
+	def run_commands(self, logfile_name, command_list):
+		for commands in command_list:
+			cmds = []
+			for cmd in commands:
+				cmds.append(self.format(cmd))
+
+			system(*cmds,
+				cwd=self.out_dir,
+				log=os.path.join(self.out_dir, logfile_name),
+			)
+
 	def configure(self, check=False):
 		if not self.patch(check):
 			return False
@@ -446,11 +487,9 @@ class Submodule:
 		# and any dependencies
 		# todo: should the hash be on the unexpanded append lines?
 		configs = readfiles(self.config_files)
+		config_file_hash = extend(zero_hash, configs)
 
-		config_hash = extend(zero_hash, [ *configs, *self.config_append ])
-		config_hash = extend(config_hash, self.configure_commands)
-
-		self.update_hashes(config_hash)
+		self.update_hashes(config_file_hash)
 
 		config_canary = os.path.join(self.out_dir, ".configured")
 		if exists(config_canary):
@@ -471,12 +510,8 @@ class Submodule:
 
 		writefile(kconfig_file, b'\n'.join(configs))
 
-		cmds = []
-		for cmd in self.configure_commands:
-			cmds.append(self.format(cmd))
-
-		info("CONFIG " + self.name)
-		system(*cmds, cwd=self.out_dir, log=os.path.join(self.out_dir, "configure-log"))
+		info("CONFIG  " + self.name)
+		self.run_commands("configure-log", self.configure_commands)
 
 		writefile(config_canary, b'')
 		self.configured = True
@@ -506,7 +541,7 @@ class Submodule:
 
 		# and check all of our dependencies
 		for dep in self.depends:
-			if not dep.built:
+			if not dep.installed:
 				return not check
 
 		# we're probably ok; mark our status as built
@@ -521,20 +556,32 @@ class Submodule:
 		if not self.build_required(check, force, build_canary):
 			return self
 
-		info("BUILD " + self.name + ": " + self.out_dir)
-
-		for commands in self.make_commands:
-			cmds = []
-			for cmd in commands:
-				cmds.append(self.format(cmd))
-
-			system(*cmds, cwd=self.out_dir, log=os.path.join(self.out_dir, "make-log"))
+		info("BUILD   " + self.name + ": " + self.out_dir)
+		self.run_commands("make-log", self.make_commands)
 
 		writefile(build_canary, b'')
 		self.built = True
 
 		return self
 
+	def install(self, force=False, check=False):
+		if not self.build(force=force, check=check):
+			return False
+
+		install_canary = os.path.join(self.out_dir, ".install-" + self.name)
+		if exists(install_canary) and not force:
+			self.installed = True
+			return self
+		if check:
+			return self
+
+		info("INSTALL " + self.name + ": " + self.install_dir)
+		self.run_commands("install-log", self.install_commands)
+
+		writefile(install_canary, b'')
+		self.installed = True
+
+		return self
 
 
 class Builder:
@@ -546,18 +593,18 @@ class Builder:
 	def reset(self):
 		self.waiting = {}
 		self.building = {}
-		self.built = {}
+		self.installed = {}
 		self.failed = {}
 
 	def report(self):
 		wait_list = ','.join(self.waiting)
 		building_list = ','.join(self.building)
-		built_list = ','.join(self.built)
+		installed_list = ','.join(self.installed)
 		failed_list = ','.join(self.failed)
 		print(now(),
 			"building=[" + building_list
 			+ "] waiting=[" +  wait_list
-			+ "] done=[" + built_list 
+			+ "] installed=[" + installed_list
 			+ "]"
 		)
 		if len(self.failed) > 0:
@@ -570,11 +617,11 @@ class Builder:
 
 		del self.waiting[mod.name]
 		self.building[mod.name] = mod
-		self.report()
+		#self.report()
 
 		try:
-			if mod.build():
-				self.built[mod.name] = mod
+			if mod.install():
+				self.installed[mod.name] = mod
 			else:
 				self.failed[mod.name] = mod
 				print(now(), mod.name + ": FAILED", file=sys.stderr)
@@ -618,17 +665,17 @@ class Builder:
 				self.mods.append(dep)
 
 		ordered_mods = [*ts.static_order()]
-		#print([x.name for x in ordered_mods])
+		print([x.name for x in ordered_mods])
 
 		for mod in ordered_mods:
-			mod.build(check=True)
-			if mod.built:
-				self.built[mod.name] = mod
+			mod.install(check=True)
+			if mod.installed:
+				self.installed[mod.name] = mod
 			else:
 				self.waiting[mod.name] = mod
 			print(mod.state() + " " + mod.name + ": " + mod.out_dir)
 
-		#self.report()
+		self.report()
 #		for modname, mod in self.built.items():
 #			print(mod.state() + " " + mod.name + ": " + mod.out_dir)
 #		for modname, mod in self.waiting.items():
@@ -654,7 +701,7 @@ class Builder:
 				mod = self.waiting[name]
 				ready = True
 				for dep in mod.depends:
-					if not dep.name in self.built:
+					if not dep.name in self.installed:
 						ready = False
 
 				if not ready:

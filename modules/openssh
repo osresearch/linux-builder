@@ -16,8 +16,6 @@ worldbuilder.Submodule("openssh",
 		*cross_tools,
 	],
 	# only install the binaries, not the system configuration stuff
-	make = [
-		[ "make" ],
-		[ "make", "-j1", "install-nosysconf", "DESTDIR=%(install_dir)s", ],
-	],
+	make = [ "make" ],
+	install = [ "make", "-j1", "install-nosysconf", "DESTDIR=%(install_dir)s", ],
 )

@@ -20,5 +20,6 @@ worldbuilder.Submodule("util-linux",
 		*cross_tools,
 		"CFLAGS=-I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 	],
-	make = [ "make", "install", "V=1" ],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )

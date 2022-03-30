@@ -17,8 +17,6 @@ worldbuilder.Submodule("openssl",
 		"-I%(linux.inc_dir)s",
 		#"-L%(binutils.lib_dir)s/gcc/"+target_arch+"/%(gcc.version)s",
 	]) ],
-	make = [
-		[ "make" ],
-		[ "make", "install" ], # this errors if combined with the make
-	],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )

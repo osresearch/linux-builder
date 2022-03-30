@@ -11,7 +11,8 @@ worldbuilder.Submodule("pixman",
 		*cross_tools,
 		"LDFLAGS=-L%(libpng.lib_dir)s -L%(zlib.lib_dir)s " + worldbuilder.prefix_map,
 	],
-	make = [ "make", "install" ],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )
 
 #pixman_libraries := pixman/.libs/libpixman-1.so.0

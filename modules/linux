@@ -10,7 +10,7 @@ linux_src = worldbuilder.Submodule("linux",
 		"O=%(install_dir)s",
 		"defconfig",
 	],
-	make = [
+	install = [
 		"make",
 		"-C%(src_dir)s",
 		"O=%(install_dir)s",

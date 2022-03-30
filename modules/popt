@@ -10,11 +10,8 @@ worldbuilder.Submodule("popt",
 		"CFLAGS=" + worldbuilder.prefix_map,
 		*cross_tools,
 	],
-	make = [
-		"make",
-		"install",
-		*cross_tools,
-	],
+	make = [ "make", *cross_tools ],
+	install = [ "make", "install", ],
 )
 
 #popt_libraries := .libs/libpopt.so.0

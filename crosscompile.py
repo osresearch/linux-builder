@@ -28,7 +28,8 @@ gmp = worldbuilder.Submodule("gmp",
 		"--enable-static=yes",
 		"--enable-shared=no",
 	],
-	make = [ "make", "install" ],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )
 
 mpc = worldbuilder.Submodule("mpc",
@@ -44,7 +45,8 @@ mpc = worldbuilder.Submodule("mpc",
 		"--enable-shared=no",
 	],
 	depends = [ mpfr, gmp ],
-	make = [ "make", "install" ],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )
 
 binutils_src = worldbuilder.Submodule("binutils_src",
@@ -66,10 +68,8 @@ binutils = worldbuilder.Submodule("binutils",
 		"--with-mpc=%(mpc.install_dir)s",
 		"--disable-nls",
 	],
-	make = [
-		[ "make" ],
-		[ "make", "install" ],
-	],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )
 
 binutils32 = worldbuilder.Submodule("binutils32",
@@ -82,10 +82,8 @@ binutils32 = worldbuilder.Submodule("binutils32",
 		"--with-mpc=%(mpc.install_dir)s",
 		"--disable-nls",
 	],
-	make = [
-		[ "make" ],
-		[ "make", "install" ],
-	],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )
 
 bison = worldbuilder.Submodule("bison",
@@ -96,7 +94,8 @@ bison = worldbuilder.Submodule("bison",
 		worldbuilder.configure_cmd,
 		"--prefix=%(install_dir)s",
 	],
-	make = [ "make", "install" ],
+	make = [ "make" ],
+	install = [ "make", "install" ],
 )
 
 cross = "%(binutils.install_dir)s/bin/" + target_arch + "-"
@@ -171,10 +170,8 @@ crossgcc = worldbuilder.Submodule("crossgcc",
 		"--with-build-time-tools=%(binutils.install_dir)s/bin",
 		*gcc_cross_tools,
 	],
-	make = [
-		[ "make", "all-gcc" ], 
-		[ "make", "install-gcc" ],
-	],
+	make = [ "make", "all-gcc" ],
+	install = [ "make", "install-gcc" ],
 )
 
 crossgcc32 = worldbuilder.Submodule("crossgcc32",
@@ -187,10 +184,8 @@ crossgcc32 = worldbuilder.Submodule("crossgcc32",
 		"--with-build-time-tools=%(binutils32.install_dir)s/bin",
 		*gcc_cross32_tools,
 	],
-	make = [
-		[ "make", "all-gcc" ], 
-		[ "make", "install-gcc" ],
-	],
+	make = [ "make", "all-gcc" ],
+	install = [ "make", "install-gcc" ],
 )
 
 musl_src = worldbuilder.Submodule("musl_src",
@@ -222,7 +217,8 @@ musl = worldbuilder.Submodule("musl",
 		"CFLAGS=-ffast-math -O3", # avoid libgcc circular math dependency
 		*cross_tools_nocc,
 	],
-	make = [
+	make = [ "make" ],
+	install = [
 		"make",
 		"install",
 		"LDSO_PATHNAME=/lib/ld-musl-x86_64.so.1",
@@ -240,7 +236,8 @@ musl32 = worldbuilder.Submodule("musl32",
 		"LDFLAGS=-Wl,--unresolved-symbols=ignore-in-object-files", # also libgcc issue
 		*cross_tools32_nocc,
 	],
-	make = [
+	make = [ "make" ],
+	install = [
 		"make",
 		"install",
 		"LDSO_PATHNAME=/lib/ld-musl-i386.so.1",
@@ -256,17 +253,17 @@ gcc = worldbuilder.Submodule("gcc",
 	version = crossgcc_src.version,
 	depends = [ crossgcc, musl ],
 	configure = [ "true" ],
-	make = [ [
-			"make",
-			"-C", "%(crossgcc.out_dir)s",
-			"all-target-libgcc",
-			"CFLAGS_FOR_TARGET=-I%(musl.install_dir)s/include -v -B%(musl.install_dir)s/lib",
-			*gcc_cross_tools,
-		], [
-			"make",
-			"-C", "%(crossgcc.out_dir)s",
-			"install-target-libgcc",
-		],
+	make = [
+		"make",
+		"-C", "%(crossgcc.out_dir)s",
+		"all-target-libgcc",
+		"CFLAGS_FOR_TARGET=-I%(musl.install_dir)s/include -v -B%(musl.install_dir)s/lib",
+		*gcc_cross_tools,
+	],
+	install = [
+		"make",
+		"-C", "%(crossgcc.out_dir)s",
+		"install-target-libgcc",
 	],
 )
 
@@ -274,17 +271,17 @@ gcc32 = worldbuilder.Submodule("gcc32",
 	version = crossgcc_src.version,
 	depends = [ crossgcc32, musl32 ],
 	configure = [ "true" ],
-	make = [ [
-			"make",
-			"-C", "%(crossgcc32.out_dir)s",
-			"all-target-libgcc",
-			"CFLAGS_FOR_TARGET=-I%(musl32.install_dir)s/include -v -B%(musl32.install_dir)s/lib",
-			*gcc_cross32_tools,
-		], [
-			"make",
-			"-C", "%(crossgcc32.out_dir)s",
-			"install-target-libgcc",
-		],
+	make = [
+		"make",
+		"-C", "%(crossgcc32.out_dir)s",
+		"all-target-libgcc",
+		"CFLAGS_FOR_TARGET=-I%(musl32.install_dir)s/include -v -B%(musl32.install_dir)s/lib",
+		*gcc_cross32_tools,
+	],
+	install = [
+		"make",
+		"-C", "%(crossgcc32.out_dir)s",
+		"install-target-libgcc",
 	],
 )
 

@@ -19,8 +19,8 @@ worldbuilder.Submodule("slang",
 	make = [
 		[ "mkdir", "-p", "src/elfobjs" ],
 		[ "make" ],
-		[ "make", "-j1", "install" ], # Disable parallel make for the install target
 	],
+	install = [ "make", "-j1", "install" ], # Disable parallel make for the install target
 )
 
 # slang_libraries := src/elfobjs/libslang.so.2

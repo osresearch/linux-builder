@@ -19,14 +19,15 @@ worldbuilder.Submodule("dropbear",
 		"CFLAGS=-I%(linux.inc_dir)s -I%(out_dir)s -I%(src_dir)s -I%(src_dir)s/libtommath " + worldbuilder.prefix_map,
 		*cross_tools,
 	],
-	make = [ [
+	make = [
 		"make",
 		#"DESTDIR=install",
 		"dbclient",
 		"scp",
 		"dropbear",
-		"install"
-		],
+	],
+	install = [
+		[ "make", "install" ],
 		# strip to remove explict paths to libgcc and rename executables
 		[ cross+"strip", "-o", "%(bin_dir)s/ssh", "%(bin_dir)s/dbclient" ],
 		[ cross+"strip", "-o", "%(bin_dir)s/sshd", "%(install_dir)s/sbin/dropbear" ],
