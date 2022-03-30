@@ -217,11 +217,13 @@ musl = worldbuilder.Submodule("musl",
 		"CFLAGS=-ffast-math -O3", # avoid libgcc circular math dependency
 		*cross_tools_nocc,
 	],
-	make = [ "make" ],
+	make = [
+		"make",
+		"LDSO_PATHNAME=/lib/ld-musl-x86_64.so.1",
+	],
 	install = [
 		"make",
 		"install",
-		"LDSO_PATHNAME=/lib/ld-musl-x86_64.so.1",
 	],
 )
 
@@ -236,11 +238,13 @@ musl32 = worldbuilder.Submodule("musl32",
 		"LDFLAGS=-Wl,--unresolved-symbols=ignore-in-object-files", # also libgcc issue
 		*cross_tools32_nocc,
 	],
-	make = [ "make" ],
+	make = [
+		"make",
+		"LDSO_PATHNAME=/lib/ld-musl-i386.so.1",
+	],
 	install = [
 		"make",
 		"install",
-		"LDSO_PATHNAME=/lib/ld-musl-i386.so.1",
 	],
 )
 
