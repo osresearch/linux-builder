@@ -1,0 +1,48 @@
+worldbuilder.Submodule("json-c",
+	depends = [ "gcc" ],
+	version = "0.14",
+	url = "https://s3.amazonaws.com/json-c_releases/releases/json-c-%(version)s-nodoc.tar.gz",
+	tarhash = "99914e644a25201d82ccefa20430f7515c110923360f9ef46755527c02412afa",
+
+# there is a bug in cmake-configure so that it can not be used with a "=", fxed in next
+# release though (then it needs to read '--prefix="$(INSTALL)"' here instead
+	kconfig_file = "toolchain",
+
+	config_append = [
+		"set(CMAKE_SYSTEM_NAME Linux)",
+		"set(CMAKE_SYSROOT %(install_dir)s)",
+		"set(CMAKE_C_COMPILER "+cross_gcc+")",
+		"set(CMAKE_AR "+cross+"ar)",
+		"set(CMAKE_LINKER "+cross+"ld)",
+		"set(CMAKE_NM "+cross+"nm)",
+		"set(CMAKE_OBJCOPY "+cross+"objcopy)",
+		"set(CMAKE_OBJDUMP "+cross+"objdump)",
+		"set(INSTALL_PKGCONFIG_DIR %(install_dir)s/lib/pkgconfig)",
+		"set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)",
+		"set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)",
+		"set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)",
+		"set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)",
+		'set(CMAKE_C_FLAGS "' + worldbuilder.prefix_map + '")',
+	],
+
+	configure = [
+		"cmake",
+		"%(src_dir)s",
+		"-DCMAKE_INSTALL_PREFIX=%(install_dir)s",
+		"-DCMAKE_TOOLCHAIN_FILE=toolchain",
+	],
+
+	make = [
+		"make",
+		"all",
+		"V=1",
+		*cross_tools,
+	],
+
+	install = [
+		"make",
+		"install",
+	],
+
+#json-c_libraries := build/libjson-c.so.5
+)

@@ -12,7 +12,7 @@ from shlex import quote
 
 from worldbuilder import extend, zero_hash, sha256hex, global_mods, exists, mkdir, writefile
 
-from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, musl
+from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, musl, cross_gcc
 
 board = 'qemu'
 kernel = 'virtio'
@@ -31,7 +31,7 @@ initrdfile = initrd.Initrd(board,
 	depends = [
 		"fbwhiptail",
 		"dropbear",
-		"cryptsetup",
+		"cryptsetup2",
 		"lvm2",
 		"flashrom",
 		"pciutils",
@@ -44,7 +44,7 @@ initrdfile = initrd.Initrd(board,
 			"%(busybox.bin_dir)s/busybox",
 			"%(dropbear.bin_dir)s/ssh",
 			"%(kexec.bin_dir)s/kexec",
-			"%(cryptsetup.bin_dir)s/cryptsetup",
+			"%(cryptsetup2.bin_dir)s/cryptsetup",
 			"%(lvm2.bin_dir)s/lvm",
 			"%(lvm2.bin_dir)s/dmsetup",
 			"%(flashrom.bin_dir)s/flashrom",
@@ -54,6 +54,7 @@ initrdfile = initrd.Initrd(board,
 			"%(musl.lib_dir)s/libc.so",
 			"%(zlib.lib_dir)s/libz.so",
 			"%(lvm2.lib_dir)s/libdevmapper.so",
+			"%(cryptsetup2.lib_dir)s/libcryptsetup.so",
 		],
 		[ "/",
 			#"init",

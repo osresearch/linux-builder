@@ -1,0 +1,52 @@
+worldbuilder.Submodule("cryptsetup2",
+	depends = [ "util-linux", "popt", "lvm2", "json-c", "gcc" ],
+	version = "2.3.3",
+	url = "https://www.kernel.org/pub/linux/utils/cryptsetup/v%(major)s.%(minor)s/cryptsetup-%(version)s.tar.xz",
+	tarhash = "3bca4ffe39e2f94cef50f6ea65acb873a6dbce5db34fc6bcefe38b6d095e82df",
+
+	patches = [ "patches/cryptsetup2-2.3.3.patch" ],
+
+	configure = [
+		worldbuilder.configure_cmd,
+		"--host=x86_64-gnu-linux",
+		"--target=" + target_arch,
+		"--prefix=/",
+		"--disable-rpath",
+		"--disable-gcrypt-pbkdf2",
+		"--enable-cryptsetup-reencrypt",
+		"--with-crypto_backend=kernel",
+		"--with-tmpfilesdir=%(install_dir)s/lib/tmpfiles.d",
+		*cross_tools,
+		"PKG_CONFIG=/bin/true",
+		"CFLAGS="
+			+ "-I%(util-linux.inc_dir)s "
+			+ "-I%(lvm2.inc_dir)s "
+			+ "-I%(linux.inc_dir)s "
+			+ "-I%(popt.inc_dir)s "
+			+ "-I%(json-c.inc_dir)s "
+			+ worldbuilder.prefix_map,
+		"LDFLAGS="
+			+ "-L%(util-linux.lib_dir)s -lblkid -luuid "
+			+ "-L%(popt.lib_dir)s -lpopt"
+			+ "",
+		"DEVMAPPER_CFLAGS=-I%(lvm2.inc_dir)s",
+		"DEVMAPPER_LIBS=-L%(lvm2.lib_dir)s -ldevmapper",
+		"JSON_C_CFLAGS=-I%(json-c.inc_dir)s",
+		"JSON_C_LIBS=-L%(json-c.lib_dir)s -ljson-c",
+	],
+
+	make = [ "make" ],
+	install = [ "make", "install", "DESTDIR=%(install_dir)s" ],
+
+	bin_dir = "sbin",
+
+# cryptsetup2_output := \
+# 	.libs/cryptsetup \
+# 	.libs/cryptsetup-reencrypt \
+# 	.libs/veritysetup \
+# 
+# cryptsetup2_libraries := \
+# 	.libs/libcryptsetup.so.12 \
+
+)
+
