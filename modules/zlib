@@ -32,7 +32,7 @@ worldbuilder.Submodule('zlib',
 		"libz.so.%(version)s",
 		*cross_tools,
 		"CFLAGS=" + worldbuilder.prefix_map,
-		"LDSHARED=%(musl.install_dir)s/bin/musl-gcc -shared",
+		"LDSHARED=" + cross_gcc + " -shared",
 	],
 	install = [ "make", "install", *cross_tools ],
 )

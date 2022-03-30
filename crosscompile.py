@@ -114,9 +114,10 @@ cross_tools_nocc = [x.upper() + "=" + cross + x
 cross_tools32_nocc = [x.upper() + "=" + cross32 + x
 	for x in tools]
 
+cross_gcc = "%(musl.install_dir)s/bin/musl-gcc"
 cross_tools = [
-	"CC=%(musl.install_dir)s/bin/musl-gcc",
-	"CXX=%(musl.install_dir)s/bin/musl-gcc",
+	"CC="+cross_gcc,
+	"CXX="+cross_gcc,
 	*cross_tools_nocc,
 ]
 
