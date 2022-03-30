@@ -1,6 +1,9 @@
 # zlib uses a non-standard `configure` script, so it is necessary
 # to pass special environment variables and build it in the same directory
 # as the source code.
+#
+# It also has a totally broken cross compiler detection that we have to
+# hack around to get the right compiler used
 
 worldbuilder.Submodule('zlib',
 	depends = [ "gcc" ],
@@ -12,15 +15,25 @@ worldbuilder.Submodule('zlib',
 	configure = [
 		# TODO: add way to pass env rather than invoking bash
 		"bash", "-c", " ".join([
-			"CROSS_PREFIX="+quote(cross),
-			"CFLAGS="+quote("-fPIC " + worldbuilder.prefix_map),
+			#"CROSS_PREFIX="+quote(cross),
+			#"LDSHARED="+quote(cross+"gcc"),
+			#*cross_tools,
+			#"CFLAGS="+quote("-fPIC " + worldbuilder.prefix_map),
 			worldbuilder.configure_cmd,
 			"--prefix=%(install_dir)s"
 		]),
 	],
 
 	# override the CC that they have determined during the configure stage
-	make = [ "make", *cross_tools ],
+	# the actual gcc should have a proper name of some sort
+	make = [
+		"make",
+		"static",
+		"libz.so.%(version)s",
+		*cross_tools,
+		"CFLAGS=" + worldbuilder.prefix_map,
+		"LDSHARED=%(musl.install_dir)s/bin/musl-gcc -shared",
+	],
 	install = [ "make", "install", *cross_tools ],
 )
 #zlib_libraries := libz.so.1
