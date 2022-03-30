@@ -52,12 +52,15 @@ kbuild_make = [
 configure_cmd = "%(src_dir)s/configure"
 
 # Try to remove any absolute paths and things that make reproducibility hard
+# these are applied in reverse order?
 prefix_map = "-gno-record-gcc-switches" \
 	+ " -Wl,--build-id=none" \
-	+ " -ffile-prefix-map=%(src_dir)s=%(name)s-%(version)s" \
-	+ " -ffile-prefix-map=%(out_dir)s=/build" \
+	+ " -ffile-prefix-map=%(top_dir)s/out=/build" \
+	+ " -ffile-prefix-map=%(top_dir)s/src=/src" \
 	+ " -ffile-prefix-map=%(install_dir)s=/" \
 
+#	+ " -ffile-prefix-map=%(src_dir)s=/src/%(name)s-%(version)s" \
+#	+ " -ffile-prefix-map=%(out_dir)s=/build" \
 
 # global list of modules; names must be unique
 global_mods = {}
@@ -144,16 +147,17 @@ class Submodule:
 		patch_dir = None,
 		dirty = False,
 		config_files = None,
+		kconfig_file = ".config",
 		config_append = None,
 		configure = None,
 		make = None,
 		install = None,
 		depends = None,
 		dep_files = None,
-		install_dir = None,
-		lib_dir = None,
-		bin_dir = None,
-		inc_dir = None,
+		install_dir = "install",
+		lib_dir = "lib",
+		bin_dir = "bin",
+		inc_dir = "include",
 		patch_level = 1,
 		strip_components = 1,
 	):
@@ -171,6 +175,7 @@ class Submodule:
 		self.patch_files = patches or []
 		self.config_files = config_files or []
 		self.config_append = config_append or []
+		self.kconfig_file = kconfig_file
 
 		self.configure_commands = configure # or [ "true" ]
 		self.make_commands = make  #or [ "true" ]
@@ -201,6 +206,7 @@ class Submodule:
 		self.bin_dir = None
 		self.lib_dir = None
 		self.inc_dir = None
+		self.top_dir = build_dir
 
 		self.fetched = False
 		self.unpacked = False
@@ -263,6 +269,7 @@ class Submodule:
 			"lib_dir":  self.lib_dir,
 			"inc_dir":  self.inc_dir,
 			"bin_dir":  self.bin_dir,
+			"top_dir": self.top_dir,
 		}
 
 		self.update_dep_dict(self.depends)
@@ -471,6 +478,7 @@ class Submodule:
 		self.bin_dir = os.path.join(self.install_dir, self._bin_dir)
 		self.lib_dir = os.path.join(self.install_dir, self._lib_dir)
 		self.inc_dir = os.path.join(self.install_dir, self._inc_dir)
+		self.top_dir = os.path.abspath(build_dir)
 
 		self.update_dict()
 
@@ -497,6 +505,10 @@ class Submodule:
 		configs = readfiles(self.config_files)
 		config_file_hash = extend(zero_hash, configs)
 
+		# hash the unexpanded the configuration appended lines first
+		for append in self.config_append:
+			config_file_hash = extend(config_file_hash, append)
+
 		self.update_hashes(config_file_hash)
 
 		config_canary = os.path.join(self.out_dir, ".configured")
@@ -510,7 +522,7 @@ class Submodule:
 
 		mkdir(self.out_dir)
 
-		kconfig_file = os.path.join(self.out_dir, ".config")
+		kconfig_file = os.path.join(self.out_dir, self.kconfig_file)
 
 		# expand the configuration appended lines now
 		for append in self.config_append:
