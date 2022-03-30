@@ -23,5 +23,7 @@ worldbuilder.Submodule("busybox",
 		*worldbuilder.kbuild_make,
 		"V=1",
 		"install",
+		*cross_tools,
+		"CFLAGS=-I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 	],
 )
