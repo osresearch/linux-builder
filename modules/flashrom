@@ -4,8 +4,8 @@ worldbuilder.Submodule("flashrom",
 	url = "https://github.com/flashrom/flashrom/archive/%(version)s.tar.gz",
 	tarhash = "4873ad50f500629c244fc3fbee64b56403a82307d7f555dfa235336a200c336c",
 	dirty = True,
-	configure = [ "true" ],
 	patches = [ "patches/flashrom-0100-enable-kgpe-d16.patch", ],
+
 	make = [ "make",
 		"WARNERROR=no",
 		"CONFIG_NOTHING=yes",
@@ -15,5 +15,10 @@ worldbuilder.Submodule("flashrom",
 		"CFLAGS=-O3 -W -Wall -I%(pciutils.inc_dir)s -I%(zlib.inc_dir)s " + worldbuilder.prefix_map,
 		"LDFLAGS=-L%(pciutils.lib_dir)s -L%(zlib.lib_dir)s",
 		*cross_tools,
+	],
+
+	install = [
+		[ "mkdir", "-p", "%(bin_dir)s" ],
+		[ cross + "strip", "-o", "%(bin_dir)s/flashrom", "%(out_dir)s/flashrom" ],
 	],
 )
