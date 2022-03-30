@@ -6,7 +6,7 @@ worldbuilder.Submodule("lvm2",
 	patches = [ "patches/lvm2-2.02.168.patch", ],
 	configure = [
 		worldbuilder.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"PKG_CONFIG=/bin/false",
 		"MODPROBE_CMD=/bin/false",
 		"ac_cv_func_malloc_0_nonnull=yes",
@@ -30,9 +30,8 @@ worldbuilder.Submodule("lvm2",
 		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 		*cross_tools,
 	],
-	# hack around their generated symbol stuff
 	make = [
-		"make", # not sure why LIB_SUFFIX is not defined in the cross build
+		"make",
 		"all",
 		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 		*cross_tools,
@@ -40,6 +39,8 @@ worldbuilder.Submodule("lvm2",
 	install = [
 		"make",
 		"install_device-mapper",
+		"install_lvm2",
+		"DESTDIR=%(install_dir)s",
 		*cross_tools,
 	],
 	bin_dir = "sbin",
