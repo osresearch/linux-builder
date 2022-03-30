@@ -53,6 +53,7 @@ configure_cmd = "%(src_dir)s/configure"
 
 # Try to remove any absolute paths and things that make reproducibility hard
 prefix_map = "-gno-record-gcc-switches" \
+	+ " -Wl,--build-id=none" \
 	+ " -ffile-prefix-map=%(src_dir)s=%(name)s-%(version)s" \
 	+ " -ffile-prefix-map=%(out_dir)s=/build" \
 	+ " -ffile-prefix-map=%(install_dir)s=/" \
@@ -171,9 +172,9 @@ class Submodule:
 		self.config_files = config_files or []
 		self.config_append = config_append or []
 
-		self.configure_commands = configure or [ "true" ]
-		self.make_commands = make or [ "true" ]
-		self.install_commands = install or [ "true" ]
+		self.configure_commands = configure # or [ "true" ]
+		self.make_commands = make  #or [ "true" ]
+		self.install_commands = install  #or [ "true" ]
 
 		self.depends = depends or []
 		self.dep_files = dep_files or []
@@ -232,7 +233,7 @@ class Submodule:
 
 	def format(self, cmd):
 		try:
- 			return cmd % self.dict
+			return cmd % self.dict
 		except Exception as e:
 			print(self.name + ":", self.dict)
 			raise
@@ -416,18 +417,13 @@ class Submodule:
 		return self
 
 	def update_hashes(self, config_file_hash):
-		# ensure that there is a list of make, and install commands
-		if type(self.configure_commands[0]) == str:
-			self.configure_commands = [ self.configure_commands ]
-		if type(self.make_commands[0]) == str:
-			self.make_commands = [ self.make_commands ]
-		if type(self.install_commands[0]) == str:
-			self.install_commands = [ self.install_commands ]
-
 		config_hash = zero_hash
-		for commands in self.configure_commands:
-			cmd_hash = extend(None, commands)
-			config_hash = extend(config_hash, cmd_hash)
+		if self.configure_commands:
+			if  type(self.configure_commands[0]) == str:
+				self.configure_commands = [ self.configure_commands ]
+			for commands in self.configure_commands:
+				cmd_hash = extend(None, commands)
+				config_hash = extend(config_hash, cmd_hash)
 
 		config_hash = extend(config_hash, [
 			self._install_dir,
@@ -439,13 +435,20 @@ class Submodule:
 		])
 
 		make_hash = zero_hash
-		for commands in self.make_commands:
-			cmd_hash = extend(None, commands)
-			make_hash = extend(make_hash, cmd_hash)
+		if self.make_commands:
+			if type(self.make_commands[0]) == str:
+				self.make_commands = [ self.make_commands ]
+			for commands in self.make_commands:
+				cmd_hash = extend(None, commands)
+				make_hash = extend(make_hash, cmd_hash)
+
 		install_hash = zero_hash
-		for commands in self.install_commands:
-			cmd_hash = extend(None, commands)
-			install_hash = extend(install_hash, cmd_hash)
+		if self.install_commands:
+			if type(self.install_commands[0]) == str:
+				self.install_commands = [ self.install_commands ]
+			for commands in self.install_commands:
+				cmd_hash = extend(None, commands)
+				install_hash = extend(install_hash, cmd_hash)
 
 		new_out_hash = extend(self.src_hash, [config_file_hash, config_hash, make_hash, install_hash])
 
@@ -515,8 +518,9 @@ class Submodule:
 
 		writefile(kconfig_file, b'\n'.join(configs))
 
-		info("CONFIG  " + self.name)
-		self.run_commands("configure-log", self.configure_commands)
+		if self.configure_commands:
+			info("CONFIG  " + self.name)
+			self.run_commands("configure-log", self.configure_commands)
 
 		writefile(config_canary, b'')
 		self.configured = True
@@ -561,8 +565,9 @@ class Submodule:
 		if not self.build_required(check, force, build_canary):
 			return self
 
-		info("BUILD   " + self.name)
-		self.run_commands("make-log", self.make_commands)
+		if self.make_commands:
+			info("BUILD   " + self.name)
+			self.run_commands("make-log", self.make_commands)
 
 		writefile(build_canary, b'')
 		self.built = True
@@ -580,8 +585,9 @@ class Submodule:
 		if check:
 			return self
 
-		info("INSTALL " + self.name)
-		self.run_commands("install-log", self.install_commands)
+		if self.install_commands:
+			info("INSTALL " + self.name)
+			self.run_commands("install-log", self.install_commands)
 
 		writefile(install_canary, b'')
 		self.installed = True
