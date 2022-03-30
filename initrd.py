@@ -142,10 +142,11 @@ class Initrd(worldbuilder.Submodule):
 		for devices in self.devices:
 			self.cpio.mknod(*devices)
 
-		hash_list = "\n".join(self.hashes)
-		print(hash_list)
+		hash_list = "".join([x + "\n" for x in self.hashes])
+		#print(hash_list)
+		hash_list = hash_list.encode('utf-8')
 
-		self.cpio.add("/hashes", "hashes", hash_list.encode('utf-8'))
+		self.cpio.add("/hashes", "hashes", hash_list)
 
 		if fail:
 			return False
@@ -158,6 +159,7 @@ class Initrd(worldbuilder.Submodule):
 		is_compressed = self.filename.endswith('.xz')
 		image = self.cpio.tobytes(compressed=is_compressed)
 		writefile(initrd_file, image)
+		writefile(initrd_file + ".hashes", hash_list)
 
 		writefile(build_canary, b'')
 		self.built = True
