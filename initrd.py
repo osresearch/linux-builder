@@ -2,8 +2,9 @@
 import worldbuilder
 import cpiofile
 import os
+import sys
 
-from worldbuilder import sha256hex, zero_hash, extend, mkdir, writefile
+from worldbuilder import sha256hex, zero_hash, extend, mkdir, writefile, readfile, relative, info, exists
 
 class Initrd(worldbuilder.Submodule):
 	def __init__(self,
@@ -64,10 +65,48 @@ class Initrd(worldbuilder.Submodule):
 
 		return self
 
-	def add_file(self, dir_name, encoded_name):
-		fullname = self.format(encoded_name)
-		filename = os.path.split(fullname)[1]
-		self.cpio.add(os.path.join(dir_name, filename), fullname)
+	def add_file(self, dir_name, encoded_name, dep=None):
+		if not dep:
+			dep = self
+		fullname = dep.format(encoded_name)
+
+		if not exists(fullname):
+			print("FAIL    " + dep.name + ": file not found " + relative(fullname), file=sys.stderr)
+			return False
+
+		image = readfile(fullname)
+		mode = os.stat(fullname).st_mode
+		file_hash = sha256hex(image)
+		self.cpio.add(dir_name, fullname, data=image, mode=mode)
+
+		return file_hash
+
+	# recursively add dependencies
+	def add_deps(self, depends):
+		fail = False
+
+		for dep in depends:
+			if dep.name in self.visited:
+				continue
+
+			self.visited[dep.name] = 1
+
+			for filename in dep.bins:
+				file_hash = self.add_file("/bin", filename, dep=dep)
+				if not file_hash:
+					fail = True
+				self.hashes.append(relative(filename) + ": " + (file_hash or "MISSING"))
+			for filename in dep.libs:
+				file_hash = self.add_file("/lib", filename, dep=dep)
+				if not file_hash:
+					fail = True
+				self.hashes.append(relative(filename) + ": " + (file_hash or "MISSING"))
+
+			if not self.add_deps(dep.depends):
+				fail = True
+
+		return not fail
+
 
 	def build(self, force=False, check=False):
 		if not self.configure(check=check):
@@ -79,19 +118,42 @@ class Initrd(worldbuilder.Submodule):
 
 		self.cpio = cpiofile.CPIO()
 
+		# add the dependent libraries
+		self.cpio.mkdir("/bin");
+		self.cpio.mkdir("/lib");
+		self.hashes = []
+
+		self.visited = {}
+		fail = not self.add_deps(self.depends)
+
+		# add any additional ones they have requested
 		for files in self.files:
 			dir_name = files[0]
 			self.cpio.mkdir(dir_name)
-			for f in files[1:]:
-				self.add_file(dir_name, f)
+			for filename in files[1:]:
+				file_hash = self.add_file(dir_name, filename)
+				if not file_hash:
+					fail = True
+				else:
+					self.hashes.append(relative(filename) + ": " + file_hash)
+
 		for symlink in self.symlinks:
 			self.cpio.symlink(*symlink)
 		for devices in self.devices:
 			self.cpio.mknod(*devices)
 
+		hash_list = "\n".join(self.hashes)
+		print(hash_list)
+
+		self.cpio.add("/hashes", "hashes", hash_list.encode('utf-8'))
+
+		if fail:
+			return False
+
+
 		mkdir(self.install_dir)
 		initrd_file = os.path.join(self.install_dir, self.filename)
-		worldbuilder.info("BUILD   " + self.name + ": " + worldbuilder.relative(initrd_file))
+		info("BUILD   " + self.name + ": " + relative(initrd_file))
 
 		is_compressed = self.filename.endswith('.xz')
 		image = self.cpio.tobytes(compressed=is_compressed)
