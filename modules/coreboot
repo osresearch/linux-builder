@@ -62,7 +62,6 @@ worldbuilder.Submodule("coreboot_blobs-" + coreboot_version,
 	url = "https://www.coreboot.org/releases/coreboot-blobs-%(version)s.tar.xz",
 	tarhash = config["blobs_hash"],
 	strip_components = 3,
-	configure = [ "true" ],
 	make = [ "ln", "-sf", "%(src_dir)s", "%(coreboot_src-"+coreboot_version+".src_dir)s/3rdparty/blobs" ],
 )
 

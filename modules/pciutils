@@ -8,8 +8,6 @@ worldbuilder.Submodule("pciutils",
 	# the makefile writes in the source directory
 	dirty = True,
 
-	configure = [ "true" ],
-
 # IDSDIR must be set to a constant during the build,
 # but not during the install to make the libpci.so.3
 # reproducible.  Otherwise the build path will be embedded
