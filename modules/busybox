@@ -1,3 +1,12 @@
+# busybox defaults `BB_EXTRA_VERSION` to the autoconf timestamp,
+# so it is necessary to pass in a fixed string to make it
+# reproducible.
+
+busybox_cflags = 'CFLAGS=' \
+	+ '-DBB_EXTRA_VERSION=\'"%(out_hash)s"\' ' \
+	+ '-I%(linux.inc_dir)s ' \
+	+ worldbuilder.prefix_map \
+
 worldbuilder.Submodule("busybox",
 	depends = [ "gcc", "linux" ],
 	url = "https://busybox.net/downloads/busybox-%(version)s.tar.bz2",
@@ -11,19 +20,19 @@ worldbuilder.Submodule("busybox",
 		"O=%(rout_dir)s",
 		"oldconfig",
 		*cross_tools,
-		"CFLAGS=-I%(linux.inc_dir)s " + worldbuilder.prefix_map,
+		busybox_cflags,
 	],
 	make = [
 		*worldbuilder.kbuild_make,
 		"V=1",
 		*cross_tools,
-		"CFLAGS=-I%(linux.inc_dir)s " + worldbuilder.prefix_map,
+		busybox_cflags,
 	],
 	install = [
 		*worldbuilder.kbuild_make,
 		"V=1",
 		"install",
 		*cross_tools,
-		"CFLAGS=-I%(linux.inc_dir)s " + worldbuilder.prefix_map,
+		busybox_cflags,
 	],
 )
