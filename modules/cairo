@@ -3,10 +3,11 @@ worldbuilder.Submodule("cairo",
 	version = "1.14.12",
 	url = "https://www.cairographics.org/releases/cairo-%(version)s.tar.xz",
 	tarhash = "8c90f00c500b2299c0a323dd9beead2a00353752b2092ead558139bd67f7bf16",
-	configure = [
+	configure = [ [
 		worldbuilder.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--host=x86_64-linux-gnu",
+		"--target=" + target_arch,
 		"--disable-xlib",
 		"--disable-xcb",
 		"--disable-pdf",
@@ -17,19 +18,30 @@ worldbuilder.Submodule("cairo",
 		"--disable-fc",
 		"--disable-pthread",
 		"--disable-gobject",
-		"CFLAGS=-DCAIRO_NO_MUTEX=1 -O3 -I%(zlib.inc_dir)s " + worldbuilder.prefix_map,
-		"LDFLAGS=-L%(pixman.lib_dir)s -L%(libpng.lib_dir)s -L%(zlib.lib_dir)s",
+		"CFLAGS=-DCAIRO_NO_MUTEX=1 -O3 "
+			+ "-I%(pixman.inc_dir)s "
+			+ "-I%(libpng.inc_dir)s "
+			+ "-I%(zlib.inc_dir)s "
+			+ worldbuilder.prefix_map,
+		"LDFLAGS="
+			+ "-L%(pixman.lib_dir)s -lpixman-1 "
+			+ "-L%(libpng.lib_dir)s -lpng16 "
+			+ "-L%(zlib.lib_dir)s -lz ",
 		*cross_tools,
+		"PKG_CONFIG=/bin/true", # otherwise it complains
+		],
+		worldbuilder.fix_libtool,
 	],
 
-#	&& sed \
-#		-e 's/^hardcode_libdir_flag_spec.*/hardcode_libdir_flag_spec=" -D__LIBTOOL_RPATH_DISABLE__ "/' \
-#		< libtool \
-#		> libtool-2 \
-#	&& mv libtool-2 libtool \
-#	&& chmod 755 libtool
+	make = [
+		[ "make", "V=1" ],
+	],
 
-	make = [ "make", "install" ],
+	install = [
+		[ "make", "install", "DESTDIR=%(install_dir)s" ],
+		worldbuilder.delete_la,
+		worldbuilder.strip_libs,
+	],
 
 	libs = [ "libcairo.so.2" ],
 )

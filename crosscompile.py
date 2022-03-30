@@ -118,6 +118,7 @@ cross_gcc = "%(musl.install_dir)s/bin/musl-gcc"
 cross_tools = [
 	"CC="+cross_gcc,
 	"CXX="+cross_gcc,
+	"PKG_CONFIG=/bin/false",  # ensure that nothing comes the system
 	*cross_tools_nocc,
 ]
 

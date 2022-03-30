@@ -4,19 +4,24 @@ worldbuilder.Submodule("libpng",
 	url = "https://github.com/glennrp/libpng-releases/raw/master/libpng-%(version)s.tar.gz",
 	tarhash = "574623a4901a9969080ab4a2df9437026c8a87150dfd5c235e28c94b212964a7",
 
-	configure = [
+	configure = [ [
 		worldbuilder.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--host=x86_64-linux-gnu",
 		"CFLAGS=-I%(zlib.inc_dir)s " + worldbuilder.prefix_map,
 		"CPPFLAGS=-I%(zlib.inc_dir)s " + worldbuilder.prefix_map,
 		"LDFLAGS=-L%(zlib.lib_dir)s",
 		*cross_tools,
+		],
+		worldbuilder.fix_libtool,
 	],
 
 	make = [ "make" ],
 
-	install = [ "make", "install" ],
+	install = [
+		[ "make", "install", "DESTDIR=%(install_dir)s" ],
+		worldbuilder.delete_la,
+	],
 
 	libs = [ "libpng16.so.16" ],
 )

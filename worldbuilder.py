@@ -62,6 +62,18 @@ prefix_map = "-gno-record-gcc-switches" \
 #	+ " -ffile-prefix-map=%(src_dir)s=/src/%(name)s-%(version)s" \
 #	+ " -ffile-prefix-map=%(out_dir)s=/build" \
 
+# Some broken configure scripts ignore the `--disable-rpath`, so this
+# forcibly rewrites their libtool in place to avoid it.
+fix_libtool = [
+	'sed',
+	'-i',
+	#'s/hardcode_into_libs=yes/hardcode_into_libs=no/g',
+	's/^hardcode_libdir_flag_spec=.*$/hardcode_libdir_flag_spec="-D__LIBTOOL_IS_A_FOOL__"/',
+	"%(src_dir)s/configure",
+]
+delete_la = [ "find", "%(install_dir)s", "-name", "*.la", "-exec", "rm", "{}", ";" ]
+strip_libs = [ "find", "%(lib_dir)s", "-name", "*.so", "-a", "-type", "f", "-exec", "strip", "{}", ";" ]
+
 # global list of modules; names must be unique
 global_mods = {}
 

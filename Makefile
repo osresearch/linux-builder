@@ -9,3 +9,6 @@ heads:
 
 jump:
 	+./jump-builder.py
+
+%:
+	+./heads-builder.py $@
