@@ -89,11 +89,13 @@ class Initrd(worldbuilder.Submodule):
 		for devices in self.devices:
 			self.cpio.mknod(*devices)
 
-		mkdir(self.out_dir)
+		mkdir(self.install_dir)
+		initrd_file = os.path.join(self.install_dir, self.filename)
+		worldbuilder.info("BUILD   " + self.name + ": " + worldbuilder.relative(initrd_file))
 
 		is_compressed = self.filename.endswith('.xz')
 		image = self.cpio.tobytes(compressed=is_compressed)
-		writefile(os.path.join(self.out_dir, self.filename), image)
+		writefile(initrd_file, image)
 
 		writefile(build_canary, b'')
 		self.built = True
