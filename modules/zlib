@@ -13,7 +13,7 @@ worldbuilder.Submodule('zlib',
 		# TODO: add way to pass env rather than invoking bash
 		"bash", "-c", " ".join([
 			"CROSS_PREFIX="+quote(cross),
-			"CFLAGS="+quote(worldbuilder.prefix_map),
+			"CFLAGS="+quote("-fPIC " + worldbuilder.prefix_map),
 			worldbuilder.configure_cmd,
 			"--prefix=%(install_dir)s"
 		]),
