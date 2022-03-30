@@ -128,6 +128,10 @@ def readfiles(names):
 		d.append(readfile(name))
 	return d
 
+def relative(dirname):
+	#abs_build = os.path.abspath(build_dir)
+	return os.path.relpath(dirname)
+
 class Submodule:
 	def __init__(self,
 		name,
@@ -305,12 +309,13 @@ class Submodule:
 		# make sure we have a place to put it
 		mkdir(ftp_dir)
 
+		info("FETCH   " + self.name + ": fetching " + url)
+
 		r = requests.get(url)
 		if r.status_code != requests.codes.ok:
 			print(url + ": failed!", r.text, file=sys.stderr)
 			return False
 			
-		info("FETCH   " + self.name + ": fetching")
 		data = r.content
 
 		if self.tarhash is not None:
@@ -362,7 +367,7 @@ class Submodule:
 
 		mkdir(self.src_dir)
 
-		info("UNPACK  " + self.name + ": " + self.tar_file + " -> " + self.src_dir)
+		info("UNPACK  " + self.name + ": " + relative(self.tar_file) + " -> " + relative(self.src_dir))
 		system("tar",
 			"-xf", self.tar_file,
 			"-C", self.src_dir,
@@ -393,7 +398,7 @@ class Submodule:
 		mkdir(self.out_dir)
 
 		for (patch_file,patch) in zip(self.patch_files, self.patches):
-			info("PATCH   " + self.src_dir + ": " + patch_file)
+			info("PATCH   " + self.name + ": " + relative(patch_file))
 
 			with NamedTemporaryFile() as tmp:
 				tmp.write(patch)
@@ -556,7 +561,7 @@ class Submodule:
 		if not self.build_required(check, force, build_canary):
 			return self
 
-		info("BUILD   " + self.name + ": " + self.out_dir)
+		info("BUILD   " + self.name)
 		self.run_commands("make-log", self.make_commands)
 
 		writefile(build_canary, b'')
@@ -575,7 +580,7 @@ class Submodule:
 		if check:
 			return self
 
-		info("INSTALL " + self.name + ": " + self.install_dir)
+		info("INSTALL " + self.name)
 		self.run_commands("install-log", self.install_commands)
 
 		writefile(install_canary, b'')
@@ -620,14 +625,19 @@ class Builder:
 		#self.report()
 
 		try:
-			if mod.install():
+			start_time = time.time()
+			if mod.installed:
+				# nothing to do!
+				pass
+			elif mod.install():
 				self.installed[mod.name] = mod
+				print(now(), "DONE    " + mod.name + ": %d seconds" % (time.time() - start_time))
 			else:
 				self.failed[mod.name] = mod
-				print(now(), mod.name + ": FAILED", file=sys.stderr)
+				print(now(), "FAILED! " + mod.name + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
 
 		except Exception as e:
-			print(now(), mod.name + ": FAILED. Logs are in", mod.out_dir, file=sys.stderr)
+			print(now(), "FAILED! " + mod.name + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
 			print(traceback.format_exc(), file=sys.stderr)
 			self.failed[mod.name] = mod
 
@@ -673,7 +683,7 @@ class Builder:
 				self.installed[mod.name] = mod
 			else:
 				self.waiting[mod.name] = mod
-			print(mod.state() + " " + mod.name + ": " + mod.out_dir)
+			print(mod.state() + " " + mod.name + ": " + relative(mod.out_dir))
 
 		self.report()
 #		for modname, mod in self.built.items():
