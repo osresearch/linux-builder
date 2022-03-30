@@ -160,6 +160,8 @@ class Submodule:
 		inc_dir = "include",
 		patch_level = 1,
 		strip_components = 1,
+		bins = None,
+		libs = None,
 	):
 		#if not url and not git:
 			#raise RuntimeError("url or git must be specified")
@@ -187,6 +189,13 @@ class Submodule:
 		self._lib_dir = "lib" if lib_dir is None else lib_dir
 		self._inc_dir = "include" if inc_dir is None else inc_dir
 		self._install_dir = "install" if install_dir is None else install_dir
+
+		# referenced to the install directory
+		# todo: how to handle symlinks?
+		self._bins = bins or []
+		self._libs = libs or []
+		self.bins = []
+		self.libs = []
 
 		self.patch_level = patch_level
 		self.strip_components = strip_components
@@ -439,6 +448,8 @@ class Submodule:
 			self._bin_dir,
 			"dirty-tree" if self.dirty else "clean-tree",
 			*self.dep_files,
+			*self._bins,
+			*self._libs
 		])
 
 		make_hash = zero_hash
@@ -481,6 +492,11 @@ class Submodule:
 		self.top_dir = os.path.abspath(build_dir)
 
 		self.update_dict()
+
+		# build the list of output binaries and libraries
+		self.bins = [self.format("%(bin_dir)s/" + f) for f in self._bins]
+		self.libs = [self.format("%(lib_dir)s/" + f) for f in self._libs]
+
 
 	def run_commands(self, logfile_name, command_list):
 		for commands in command_list:
