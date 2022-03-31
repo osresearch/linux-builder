@@ -6,8 +6,8 @@ import cpiofile
 import initrd
 import os
 import sys
-from glob import glob
 import traceback
+import glob
 from shlex import quote
 
 from worldbuilder import extend, zero_hash, sha256hex, global_mods, exists, mkdir, writefile
@@ -17,7 +17,7 @@ from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cr
 board = 'qemu'
 kernel = 'virtio'
 
-for modname in glob("modules/*"):
+for modname in sorted(glob.glob("modules/*")):
 	try:
 		with open(modname, "r") as f:
 			exec(f.read())
