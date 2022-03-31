@@ -4,18 +4,24 @@ worldbuilder.Submodule("popt",
 	url = "https://launchpad.net/popt/head/%(version)s/+download/popt-%(version)s.tar.gz",
 	tarhash = 'e728ed296fe9f069a0e005003c3d6b2dde3d9cad453422a10d6558616d304cc8',
 
-	configure = [
+	configure = [ [
 		worldbuilder.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--host=x86_64-linux-gnu",
 		"--disable-rpath",
 		"CFLAGS=" + worldbuilder.prefix_map,
 		*cross_tools,
+		],
+		worldbuilder.fix_libtool,
 	],
 
 	make = [ "make", *cross_tools ],
 
-	install = [ "make", "install", ],
+	install = [
+		[ "make", "install", "DESTDIR=%(install_dir)s" ],
+		worldbuilder.delete_la,
+		worldbuilder.strip_libs,
+	],
 
 	libs = [ "libpopt.so.0" ],
 )
