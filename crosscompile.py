@@ -59,8 +59,6 @@ binutils_src = worldbuilder.Submodule("binutils_src",
 	version = "2.38",
 	url = "https://ftp.gnu.org/gnu/binutils/binutils-%(version)s.tar.xz",
 	tarhash = 'e316477a914f567eccc34d5d29785b8b0f5a10208d36bbacedcc39048ecfe024',
-	configure = [ "true" ],
-	make = [ "true" ],
 )
 
 binutils = worldbuilder.Submodule("binutils",
@@ -146,8 +144,6 @@ crossgcc_src = worldbuilder.Submodule("crossgcc_src",
 	#tarhash = 'c95da32f440378d7751dd95533186f7fc05ceb4fb65eb5b85234e6299eb9838e',
 	version = gcc_version,
 	tarhash = 'd08edc536b54c372a1010ff6619dd274c0f1603aa49212ba20f7aa2cda36fa8b',
-	configure = [ "true" ],
-	make = [ "true" ],
 )
 
 # submodule must also provide `--target=....`
@@ -208,8 +204,6 @@ musl_src = worldbuilder.Submodule("musl_src",
 	patches = [ "patches/musl-0000-fastmath.patch" ],
 
 	# source only; don't build anything
-	configure = [ "true" ],
-	make = [ "true" ],
 )
 
 musl_configure_cmds = [
@@ -279,7 +273,6 @@ musl32 = worldbuilder.Submodule("musl32",
 gcc = worldbuilder.Submodule("gcc",
 	version = crossgcc_src.version,
 	depends = [ crossgcc, musl ],
-	configure = [ "true" ],
 	make = [
 		"make",
 		"-C", "%(crossgcc.out_dir)s",
@@ -301,7 +294,6 @@ gcc = worldbuilder.Submodule("gcc",
 gcc32 = worldbuilder.Submodule("gcc32",
 	version = crossgcc_src.version,
 	depends = [ crossgcc32, musl32 ],
-	configure = [ "true" ],
 	make = [
 		"make",
 		"-C", "%(crossgcc32.out_dir)s",
