@@ -32,6 +32,8 @@ class Initrd(worldbuilder.Submodule):
 			for f in files[1:]:
 				self.dep_files.append(f)
 
+		# todo: we should also depend on our output to force rebuilds
+
 	def fetch(self, check=False):
 		self.fetched = True
 		return self
@@ -75,8 +77,13 @@ class Initrd(worldbuilder.Submodule):
 			return False
 
 		image = readfile(fullname)
-		mode = os.stat(fullname).st_mode
+		mode = 0o700 # os.stat(fullname).st_mode  # we're all root here
 		file_hash = sha256hex(image)
+
+		# quick check for path names
+		if image.find(b'/home/ubuntu') != -1:
+			print(relative(fullname) + ": contains full path name", file=sys.stderr)
+
 		self.cpio.add(dir_name, fullname, data=image, mode=mode)
 
 		return file_hash
