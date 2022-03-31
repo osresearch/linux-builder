@@ -1,0 +1,11 @@
+--- ../../clean/cairo-1.14.12/configure	2017-12-06 22:50:48.000000000 +0000
++++ 8c90f00c500b2299/configure	2022-03-31 16:13:16.718461113 +0000
+@@ -32840,7 +32840,7 @@
+ 
+ 
+ 
+-if pkg-config --exists 'pixman-1 >= 0.27.1'; then
++if ${PKG_CONFIG} -config --exists 'pixman-1 >= 0.27.1'; then
+ 
+ $as_echo "#define HAS_PIXMAN_GLYPHS 1" >>confdefs.h
+ 
