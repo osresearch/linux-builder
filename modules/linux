@@ -19,10 +19,28 @@ linux_src = worldbuilder.Submodule("linux",
 	inc_dir = "usr/include",
 )
 
+#
+# The Linux kernel will create an irreproducible initrd
+# if one is not specified.  This creates a tiny one with
+# just the /dev/console required to boot the kernel.
+#
+devinitrd = initrd.Initrd("dev",
+	filename = "initrd.cpio",
+	version = "0.0.0",
+	add_hashes = False,
+	devices = [
+		[ "/dev/console", "c", 5, 1 ],
+	],
+);
+
 worldbuilder.Submodule("linux-" + kernel,
 	version = linux_src.version,
-	depends = [ linux_src, "crossgcc" ], # doesn't need musl so it can start earlier
+	depends = [ linux_src, devinitrd, "crossgcc" ], # doesn't need musl so it can start earlier
 	config_files = [ "config/linux-" + kernel + ".config" ],
+	config_append = [
+		'CONFIG_INITRAMFS_SOURCE="%(initrd-dev.install_dir)s/initrd.cpio"',
+	],
+
 	configure = [
 		"make",
 		"-C%(linux.src_dir)s",
@@ -32,6 +50,7 @@ worldbuilder.Submodule("linux-" + kernel,
 		"CROSS_COMPILE=" + cross,
 		#"CC=" + cross + "gcc",
 	],
+
 	make = [ 
 		"make",
 		"-C%(linux.src_dir)s",
@@ -45,5 +64,6 @@ worldbuilder.Submodule("linux-" + kernel,
 		"KBUILD_BUILD_TIMESTAMP=1970-01-01T00:00:00",
 		"KBUILD_BUILD_VERSION=%(linux.src_hash)s",
 	],
+
 	install_dir = "arch/x86/boot",
 )

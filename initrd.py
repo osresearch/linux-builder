@@ -12,9 +12,11 @@ class Initrd(worldbuilder.Submodule):
 		version = "0.0.1",
 		filename = "initrd.cpio",
 		depends = None,
+		dirs = None,
 		files = None,
 		symlinks = None,
 		devices = None,
+		add_hashes = True,
 	):
 		super().__init__(
 			'initrd-' + name,
@@ -22,10 +24,12 @@ class Initrd(worldbuilder.Submodule):
 			version = version,
 		)
 		self.filename = filename
+		self.dirs = dirs or []
 		self.files = files or []
 		self.symlinks = symlinks or []
 		self.devices = devices or []
 		self._install_dir = ""
+		self.add_hashes = add_hashes
 
 		# make sure that we depend on any files that we bring in
 		for files in self.files:
@@ -46,6 +50,8 @@ class Initrd(worldbuilder.Submodule):
 	def configure(self, check=False):
 		# update our output hash based on our dependencies and our files
 		self.src_hash = sha256hex((self.filename + "-" + self.version).encode('utf-8'))
+		dirs_hash = extend(zero_hash, self.dirs)
+
 		files_hash = zero_hash
 		for files in self.files:
 			files_hash = extend(files_hash, files)
@@ -59,7 +65,7 @@ class Initrd(worldbuilder.Submodule):
 			s = [ device[0], device[1], str(device[2]), str(device[3]) ]
 			devices_hash = extend(devices_hash, s)
 
-		self.src_hash = extend(self.src_hash, [files_hash, symlink_hash, devices_hash])
+		self.src_hash = extend(self.src_hash, [dirs_hash, files_hash, symlink_hash, devices_hash])
 
 		# update our output hash and all of our state variables
 		self.update_hashes(zero_hash)
@@ -125,11 +131,13 @@ class Initrd(worldbuilder.Submodule):
 
 		self.cpio = cpiofile.CPIO()
 
-		# add the dependent libraries
-		self.cpio.mkdir("/bin");
-		self.cpio.mkdir("/lib");
+		# first thing make any directories
+		for dirname in self.dirs:
+			self.cpio.mkdir(dirname)
+
 		self.hashes = []
 
+		# add any binaries and libraries from dependencies
 		self.visited = {}
 		fail = not self.add_deps(self.depends)
 
@@ -153,7 +161,8 @@ class Initrd(worldbuilder.Submodule):
 		#print(hash_list)
 		hash_list = hash_list.encode('utf-8')
 
-		self.cpio.add("/hashes", "hashes", hash_list)
+		if self.add_hashes:
+			self.cpio.add("/hashes", "hashes", hash_list)
 
 		if fail:
 			return False

@@ -39,6 +39,7 @@ initrdfile = initrd.Initrd(board,
 		"kexec",
 		"openssh",
 	],
+	dirs = [ "/bin", "/lib" ],
 	files = [
 	],
 	symlinks = [
