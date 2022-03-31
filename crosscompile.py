@@ -160,6 +160,7 @@ crossgcc_configure_cmds = [
 	"--disable-libssp",
 	"--disable-libgomp",
 	"--disable-libquadmath",
+	"CFLAGS=" + worldbuilder.prefix_map,
 ]
 
 crossgcc = worldbuilder.Submodule("crossgcc",
@@ -216,7 +217,9 @@ musl = worldbuilder.Submodule("musl",
 		*musl_configure_cmds,
 		"--target=" + target_arch,
 		"CC=" + cross + "gcc",
-		"CFLAGS=-ffast-math -O3", # avoid libgcc circular math dependency
+		"CFLAGS="
+			+ "-ffast-math -O3 " # avoid libgcc circular math dependency
+			+ worldbuilder.prefix_map,
 		*cross_tools_nocc,
 	],
 	make = [
@@ -238,7 +241,9 @@ musl32 = worldbuilder.Submodule("musl32",
 		*musl_configure_cmds,
 		"--target=" + target_arch32,
 		"CC=" + cross32 + "gcc",
-		"CFLAGS=-ffast-math -O3", # avoid libgcc circular math dependency
+		"CFLAGS="
+			+ "-ffast-math -O3 " # avoid libgcc circular math dependency
+			+ worldbuilder.prefix_map,
 		"LDFLAGS=-Wl,--unresolved-symbols=ignore-in-object-files", # also libgcc issue
 		*cross_tools32_nocc,
 	],
@@ -267,7 +272,10 @@ gcc = worldbuilder.Submodule("gcc",
 		"make",
 		"-C", "%(crossgcc.out_dir)s",
 		"all-target-libgcc",
-		"CFLAGS_FOR_TARGET=-I%(musl.install_dir)s/include -v -B%(musl.install_dir)s/lib",
+		"CFLAGS_FOR_TARGET="
+			+ "-I%(musl.install_dir)s/include "
+			+ "-B%(musl.install_dir)s/lib "
+			+ worldbuilder.prefix_map,
 		*gcc_cross_tools,
 	],
 	install = [
@@ -285,7 +293,10 @@ gcc32 = worldbuilder.Submodule("gcc32",
 		"make",
 		"-C", "%(crossgcc32.out_dir)s",
 		"all-target-libgcc",
-		"CFLAGS_FOR_TARGET=-I%(musl32.install_dir)s/include -v -B%(musl32.install_dir)s/lib",
+		"CFLAGS_FOR_TARGET="
+			+ "-I%(musl32.install_dir)s/include "
+			+ "-B%(musl32.install_dir)s/lib "
+			+ worldbuilder.prefix_map,
 		*gcc_cross32_tools,
 	],
 	install = [
