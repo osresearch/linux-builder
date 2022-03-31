@@ -4,9 +4,9 @@ worldbuilder.Submodule("cryptsetup2",
 	url = "https://www.kernel.org/pub/linux/utils/cryptsetup/v%(major)s.%(minor)s/cryptsetup-%(version)s.tar.xz",
 	tarhash = "3bca4ffe39e2f94cef50f6ea65acb873a6dbce5db34fc6bcefe38b6d095e82df",
 
-	patches = [ "patches/cryptsetup2-2.3.3.patch" ],
+	# patches = [ "patches/cryptsetup2-2.3.3.patch" ],
 
-	configure = [
+	configure = [ [
 		worldbuilder.configure_cmd,
 		"--host=x86_64-gnu-linux",
 		"--target=" + target_arch,
@@ -26,18 +26,26 @@ worldbuilder.Submodule("cryptsetup2",
 			+ "-I%(json-c.inc_dir)s "
 			+ worldbuilder.prefix_map,
 		"LDFLAGS="
+			+ "-L%(lvm2.lib_dir)s -ldevmapper "
+			+ "-L%(json-c.lib_dir)s -ljson-c "
 			+ "-L%(util-linux.lib_dir)s -lblkid -luuid "
-			+ "-L%(popt.lib_dir)s -lpopt"
+			+ "-L%(popt.lib_dir)s -lpopt "
 			+ "",
-		"DEVMAPPER_CFLAGS=-I%(lvm2.inc_dir)s",
-		"DEVMAPPER_LIBS=-L%(lvm2.lib_dir)s -ldevmapper",
-		"JSON_C_CFLAGS=-I%(json-c.inc_dir)s",
-		"JSON_C_LIBS=-L%(json-c.lib_dir)s -ljson-c",
+		#"DEVMAPPER_CFLAGS=-I%(lvm2.inc_dir)s",
+		#"DEVMAPPER_LIBS=-L%(lvm2.lib_dir)s -ldevmapper",
+		#"JSON_C_CFLAGS=-I%(json-c.inc_dir)s",
+		#"JSON_C_LIBS=-L%(json-c.lib_dir)s -ljson-c",
+		],
+		worldbuilder.fix_libtool,
 	],
 
 	make = [ "make" ],
 
-	install = [ "make", "install", "DESTDIR=%(install_dir)s" ],
+	install = [
+		[ "make", "install", "DESTDIR=%(install_dir)s" ],
+		worldbuilder.delete_la,
+		worldbuilder.strip_libs,
+	],
 
 	bin_dir = "sbin",
 	bins = [ "cryptsetup", "cryptsetup-reencrypt", "veritysetup" ],
