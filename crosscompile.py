@@ -5,19 +5,6 @@ import worldbuilder
 target_arch = "x86_64-linux-musl"
 target_arch32 = "i386-linux-musl"
 
-mpfr = worldbuilder.Submodule("mpfr",
-	version = "4.1.0",
-	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
-	tarhash = '0c98a3f1732ff6ca4ea690552079da9c597872d30e96ec28414ee23c95558a7f',
-	configure = [
-		worldbuilder.configure_cmd,
-		"--prefix=%(install_dir)s",
-		"--enable-static=yes",
-		"--enable-shared=no",
-	],
-	make = [ "make", "install" ],
-)
-
 gmp = worldbuilder.Submodule("gmp",
 	version = "6.2.1",
 	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
@@ -27,12 +14,30 @@ gmp = worldbuilder.Submodule("gmp",
 		"--prefix=%(install_dir)s",
 		"--enable-static=yes",
 		"--enable-shared=no",
+		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make" ],
 	install = [ "make", "install" ],
 )
 
+mpfr = worldbuilder.Submodule("mpfr",
+	depends = [ "gmp" ],
+	version = "4.1.0",
+	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
+	tarhash = '0c98a3f1732ff6ca4ea690552079da9c597872d30e96ec28414ee23c95558a7f',
+	configure = [
+		worldbuilder.configure_cmd,
+		"--prefix=%(install_dir)s",
+		"--enable-static=yes",
+		"--enable-shared=no",
+		"--with-gmp=%(gmp.install_dir)s",
+		"PKG_CONFIG=/bin/false",
+	],
+	make = [ "make", "install" ],
+)
+
 mpc = worldbuilder.Submodule("mpc",
+	depends = [ "mpfr", "gmp" ],
 	version = "1.2.1",
 	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.gz",
 	tarhash = '17503d2c395dfcf106b622dc142683c1199431d095367c6aacba6eec30340459',
@@ -43,8 +48,8 @@ mpc = worldbuilder.Submodule("mpc",
 		"--with-gmp=%(gmp.install_dir)s",
 		"--enable-static=yes",
 		"--enable-shared=no",
+		"PKG_CONFIG=/bin/false",
 	],
-	depends = [ mpfr, gmp ],
 	make = [ "make" ],
 	install = [ "make", "install" ],
 )
@@ -67,6 +72,7 @@ binutils = worldbuilder.Submodule("binutils",
 		"--prefix=%(install_dir)s",
 		"--with-mpc=%(mpc.install_dir)s",
 		"--disable-nls",
+		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make" ],
 	install = [ "make", "install" ],
@@ -81,6 +87,7 @@ binutils32 = worldbuilder.Submodule("binutils32",
 		"--prefix=%(install_dir)s",
 		"--with-mpc=%(mpc.install_dir)s",
 		"--disable-nls",
+		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make" ],
 	install = [ "make", "install" ],
@@ -93,6 +100,7 @@ bison = worldbuilder.Submodule("bison",
 	configure = [
 		worldbuilder.configure_cmd,
 		"--prefix=%(install_dir)s",
+		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make" ],
 	install = [ "make", "install" ],
@@ -172,6 +180,7 @@ crossgcc = worldbuilder.Submodule("crossgcc",
 		"--prefix=%(binutils.install_dir)s", # note output!
 		"--with-build-time-tools=%(binutils.install_dir)s/bin",
 		*gcc_cross_tools,
+		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make", "all-gcc" ],
 	install = [ "make", "install-gcc" ],
@@ -186,6 +195,7 @@ crossgcc32 = worldbuilder.Submodule("crossgcc32",
 		"--prefix=%(binutils32.install_dir)s", # note output!
 		"--with-build-time-tools=%(binutils32.install_dir)s/bin",
 		*gcc_cross32_tools,
+		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make", "all-gcc" ],
 	install = [ "make", "install-gcc" ],
@@ -220,6 +230,7 @@ musl = worldbuilder.Submodule("musl",
 		"CFLAGS="
 			+ "-ffast-math -O3 " # avoid libgcc circular math dependency
 			+ worldbuilder.prefix_map,
+		"PKG_CONFIG=/bin/false",
 		*cross_tools_nocc,
 	],
 	make = [
@@ -244,6 +255,7 @@ musl32 = worldbuilder.Submodule("musl32",
 		"CFLAGS="
 			+ "-ffast-math -O3 " # avoid libgcc circular math dependency
 			+ worldbuilder.prefix_map,
+		"PKG_CONFIG=/bin/false",
 		"LDFLAGS=-Wl,--unresolved-symbols=ignore-in-object-files", # also libgcc issue
 		*cross_tools32_nocc,
 	],
@@ -276,6 +288,7 @@ gcc = worldbuilder.Submodule("gcc",
 			+ "-I%(musl.install_dir)s/include "
 			+ "-B%(musl.install_dir)s/lib "
 			+ worldbuilder.prefix_map,
+		"PKG_CONFIG=/bin/false",
 		*gcc_cross_tools,
 	],
 	install = [
@@ -297,6 +310,7 @@ gcc32 = worldbuilder.Submodule("gcc32",
 			+ "-I%(musl32.install_dir)s/include "
 			+ "-B%(musl32.install_dir)s/lib "
 			+ worldbuilder.prefix_map,
+		"PKG_CONFIG=/bin/false",
 		*gcc_cross32_tools,
 	],
 	install = [
