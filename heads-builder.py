@@ -1,4 +1,4 @@
-#!/usr/bin/python3.9
+#!/usr/bin/python3
 # Build the Heads runtime (coreboot, initrd, kernel) with worldbuilder
 #
 import worldbuilder
