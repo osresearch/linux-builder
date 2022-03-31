@@ -29,6 +29,7 @@ from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import sleep, asctime
 from graphlib import TopologicalSorter  # requires python3.9
+from glob import glob
 
 verbose = 1
 build_dir = 'build'
@@ -368,8 +369,20 @@ class Submodule:
 		if not self.fetch():
 			return False
 
-		self.patches = readfiles(self.patch_files)
-		self.src_hash = extend(self.tarhash, self.patches)
+		self.src_hash = self.tarhash
+
+		self.patches = []
+		for filename in self.patch_files:
+			expanded = self.format(filename)
+			files = glob(expanded)
+			if len(files) == 0:
+				# files are missing!
+				print(self.name + ": no match for " + expanded + "(originally " + filename + ")", file=sys.stderr)
+				return False
+			for patch_filename in sorted(files):
+				patch = readfile(patch_filename)
+				self.patches.append([patch_filename, patch])
+				self.src_hash = extend(self.src_hash, [patch])
 
 		if self.dirty:
 			# the src_subdir is based on the output hash,
@@ -426,7 +439,7 @@ class Submodule:
 
 		mkdir(self.out_dir)
 
-		for (patch_file,patch) in zip(self.patch_files, self.patches):
+		for (patch_file,patch) in self.patches:
 			info("PATCH   " + self.name + ": " + relative(patch_file))
 
 			with NamedTemporaryFile() as tmp:

@@ -53,7 +53,7 @@ worldbuilder.Submodule("coreboot_src-" + coreboot_version,
 	url = "https://www.coreboot.org/releases/coreboot-%(version)s.tar.xz",
 	version = coreboot_version,
 	tarhash = config["tarhash"],
-	patches = glob("patches/coreboot-"+ coreboot_version + "/*"),
+	patches = [ "patches/coreboot-%(version)s/*" ],
 )
 
 

@@ -5,7 +5,7 @@ worldbuilder.Submodule("cairo",
 	tarhash = "8c90f00c500b2299c0a323dd9beead2a00353752b2092ead558139bd67f7bf16",
 
 	patches = [
-		"patches/cairo-1.14.12.patch",	# fixup call to pkg-config
+		"patches/cairo-%(version)s.patch",	# fixup call to pkg-config
 	],
 
 	configure = [ [

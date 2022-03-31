@@ -3,7 +3,8 @@ worldbuilder.Submodule("lvm2",
 	version = "2.02.168",
 	url = "https://mirrors.kernel.org/sourceware/lvm2/LVM2.%(version)s.tgz",
 	tarhash = "23a3d1cddd41b3ef51812ebf83e9fa491f502fe74130d4263be327a91914660d",
-	patches = [ "patches/lvm2-2.02.168.patch", ],
+	patches = [ "patches/lvm2-%(version)s.patch", ],
+
 	configure = [
 		worldbuilder.configure_cmd,
 		"--prefix=/",
@@ -29,12 +30,14 @@ worldbuilder.Submodule("lvm2",
 		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 		*cross_tools,
 	],
+
 	make = [
 		"make",
 		"all",
 		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
 		*cross_tools,
 	],
+
 	install = [
 		"make",
 		"install_device-mapper",

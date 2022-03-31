@@ -3,7 +3,7 @@ worldbuilder.Submodule("pciutils",
 	version = "3.5.4",
 	url = "https://www.kernel.org/pub/software/utils/%(name)s/%(name)s-%(version)s.tar.xz",
 	tarhash = "64293c6ab9318c40ef262b76d87bd9097531759752bac556e50979b1e63cfe66",
-	patches = [ "patches/pciutils-3.5.4.patch" ],
+	patches = [ "patches/pciutils-%(version)s.patch" ],
 
 	# the makefile writes in the source directory
 	dirty = True,

@@ -2,9 +2,10 @@
 worldbuilder.Submodule("dropbear",
 	depends = [ "zlib", "linux", "gcc" ],
 	version = "2016.74",
-	patches = [ "patches/dropbear-2016.74.patch", ],
 	url = "https://matt.ucc.asn.au/dropbear/releases/dropbear-%(version)s.tar.bz2",
 	tarhash = "2720ea54ed009af812701bcc290a2a601d5c107d12993e5d92c0f5f81f718891",
+	patches = [ "patches/dropbear-%(version)s.patch", ],
+
 	configure = [
 		worldbuilder.configure_cmd,
 		"--prefix=%(install_dir)s",

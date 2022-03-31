@@ -3,9 +3,8 @@ worldbuilder.Submodule("cryptsetup",
 	version = "1.7.3",
 	url = 'https://www.kernel.org/pub/linux/utils/cryptsetup/v%(major)s.%(minor)s/cryptsetup-%(version)s.tar.xz',
 	tarhash = 'af2b04e8475cf40b8d9ffd97a1acfa73aa787c890430afd89804fb544d6adc02',
-	patches = [ "patches/cryptsetup-1.7.3.patch" ],
-# Use an empty prefix so that the executables will not include the
-# build path. -- TODO fix this?
+	patches = [ "patches/cryptsetup-%(version)s.patch" ],
+
 	configure = [
 		worldbuilder.configure_cmd,
 		"--prefix=/",
@@ -20,9 +19,9 @@ worldbuilder.Submodule("cryptsetup",
 		"DEVMAPPER_CFLAGS=-I%(lvm2.inc_dir)s",
 		"DEVMAPPER_LIBS=-L%(lvm2.lib_dir)s -ldevmapper",
 	],
-# but after building, replace prefix so that they will be installed
-# in the correct directory.
+
 	make = [ "make", "all", "V=1" ],
+
 	install = [ "make", "install", "DESTDIR=%(install_dir)s", ],
 
 	bin_dir = "sbin",
