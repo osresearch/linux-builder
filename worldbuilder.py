@@ -582,10 +582,10 @@ class Submodule:
 		for filename in self.dep_files:
 			real_filename = self.format(filename)
 			if not exists(real_filename):
-				print(self.name + ": no " + real_filename)
+				#print(self.name + ": no " + real_filename)
 				return not check
 			if os.stat(real_filename).st_mtime > canary_build_time:
-				print(self.name + ": newer " + real_filename)
+				#print(self.name + ": newer " + real_filename)
 				return not check
 
 		# and check all of our dependencies
@@ -677,7 +677,7 @@ class Builder:
 				pass
 			elif mod.install():
 				self.installed[mod.name] = mod
-				print(now(), "DONE    " + mod.name + ": %d seconds" % (time.time() - start_time))
+				print(now(), "DONE    " + mod.name + " (%d seconds)" % (time.time() - start_time))
 			else:
 				self.failed[mod.name] = mod
 				print(now(), "FAILED! " + mod.name + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
