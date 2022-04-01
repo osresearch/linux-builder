@@ -313,3 +313,5 @@ gcc32 = worldbuilder.Submodule("gcc32",
 	],
 )
 
+libgcc32 = "%(binutils32.lib_dir)s/gcc/"+target_arch32+"/%(gcc32.version)s/libgcc.a"
+libgcc = "%(binutils.lib_dir)s/gcc/"+target_arch+"/%(gcc.version)s/libgcc.a"
