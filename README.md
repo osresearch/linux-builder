@@ -53,8 +53,9 @@ unify-kernel \
 various autotools need flex/bison/m4,
 `json-c` uses cmake,
 `openssl` uses some Perl packages.
-linux kernel wants bc, lz4, and host-side tools need openssl
+linux kernel wants rsync, bc, lz4, and host-side tools need openssl
 
+Fedora requirements:
 ```
 dnf install \
   make patch gcc g++ python3 git \
@@ -65,6 +66,23 @@ dnf install \
   bc lz4 openssl-devel \
   flex bison m4
 ```
+
+Debian requirements:
+```
+apt install \
+  make patch gcc g++ python3 git \
+  texinfo \
+  bzip2 xz-utils \
+  cmake \
+  bc lz4 libssl-dev flex bison m4 rsync
+```
+
+```
+git clone https://github.com/osresearch/linux-builder
+cd linux-builder
+make -j64 heads
+```
+
 
 TODO: can we remove the texinfo requirement?
 TODO: can we reduce the @development-tools to just gcc?
