@@ -43,3 +43,29 @@ unify-kernel \
   -o build/bootx64.efi
 ```
  
+ 
+
+----
+
+# worldbuilder
+
+`worldbuilder` uses Python3 (> 3.9), make and patch,
+various autotools need flex/bison/m4,
+`json-c` uses cmake,
+`openssl` uses some Perl packages.
+linux kernel wants bc, lz4, and host-side tools need openssl
+
+```
+dnf install \
+  make patch gcc g++ python3 git \
+  texinfo \
+  bzip2 xz \
+  cmake \
+  perl-FindBin perl-File-Compare \
+  bc lz4 openssl-devel \
+  flex bison m4
+```
+
+TODO: can we remove the texinfo requirement?
+TODO: can we reduce the @development-tools to just gcc?
+
