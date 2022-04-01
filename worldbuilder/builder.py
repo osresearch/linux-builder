@@ -35,8 +35,8 @@ class Builder:
 
 	def _build_thread(self, mod):
 
-		del self.waiting[mod.name]
-		self.building[mod.name] = mod
+		del self.waiting[mod.fullname]
+		self.building[mod.fullname] = mod
 		#self.report()
 
 		try:
@@ -45,18 +45,18 @@ class Builder:
 				# nothing to do!
 				pass
 			elif mod.install():
-				self.installed[mod.name] = mod
-				print(now(), "DONE    " + mod.name + " (%d seconds)" % (time.time() - start_time))
+				self.installed[mod.fullname] = mod
+				print(now(), "DONE    " + mod.fullname + " (%d seconds)" % (time.time() - start_time))
 			else:
-				self.failed[mod.name] = mod
-				print(now(), "FAILED! " + mod.name + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
+				self.failed[mod.fullname] = mod
+				print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
 
 		except Exception as e:
-			print(now(), "FAILED! " + mod.name + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
+			print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
 			print(traceback.format_exc(), file=sys.stderr)
-			self.failed[mod.name] = mod
+			self.failed[mod.fullname] = mod
 
-		del self.building[mod.name]
+		del self.building[mod.fullname]
 		#self.report()
 
 	def check(self):
@@ -79,7 +79,7 @@ class Builder:
 			for dep in mod.depends:
 				if type(dep) == str:
 					if not dep in global_mods:
-						die(dep + ": not found? referenced by " + mod.name)
+						die(dep + ": not found? referenced by " + mod.fullname)
 					dep = global_mods[dep]
 				depends.append(dep)
 
@@ -90,15 +90,15 @@ class Builder:
 				self.mods.append(dep)
 
 		ordered_mods = [*ts.static_order()]
-		print([x.name for x in ordered_mods])
+		print([x.fullname for x in ordered_mods])
 
 		for mod in ordered_mods:
 			mod.install(check=True)
 			if mod.installed:
-				self.installed[mod.name] = mod
+				self.installed[mod.fullname] = mod
 			else:
-				self.waiting[mod.name] = mod
-			print(mod.state() + " " + mod.name + ": " + relative(mod.out_dir))
+				self.waiting[mod.fullname] = mod
+			print(mod.state() + " " + mod.fullname + ": " + relative(mod.out_dir))
 
 		self.report()
 #		for modname, mod in self.built.items():
@@ -126,7 +126,7 @@ class Builder:
 				mod = self.waiting[name]
 				ready = True
 				for dep in mod.depends:
-					if not dep.name in self.installed:
+					if not dep.fullname in self.installed:
 						ready = False
 
 				if not ready:

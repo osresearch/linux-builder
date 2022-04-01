@@ -71,9 +71,16 @@ class Submodule:
 	):
 		#if not url and not git:
 			#raise RuntimeError("url or git must be specified")
+		if name.endswith("-" + version):
+			self.fullname = name
+		else:
+			self.fullname = name + "-" + version
+
 		if name in global_mods:
-			die(name + ": already exists in the global module list?")
-		global_mods[name] = self
+			info(name + ": already exists in the global module list?")
+		else:
+			global_mods[name] = self
+		global_mods[name + "-" + version] = self
 
 		self.name = name
 		self.url = url
@@ -157,7 +164,7 @@ class Submodule:
 		try:
 			return cmd % self.dict
 		except Exception as e:
-			print(self.name + ":", self.dict)
+			print(self.fullname + ":", self.dict)
 			raise
 
 	def update_dict(self):
@@ -233,7 +240,7 @@ class Submodule:
 		# make sure we have a place to put it
 		mkdir(ftp_dir)
 
-		info("FETCH   " + self.name + ": fetching " + url)
+		info("FETCH   " + self.fullname + ": fetching " + url)
 
 		r = requests.get(url)
 		if r.status_code != requests.codes.ok:
@@ -271,7 +278,7 @@ class Submodule:
 			files = sorted(glob(expanded))
 			if len(files) == 0:
 				# files are missing!
-				print(self.name + ": no match for " + expanded + "(originally " + filename + ")", file=sys.stderr)
+				print(self.fullname + ": no match for " + expanded + "(originally " + filename + ")", file=sys.stderr)
 				return False
 			for patch_filename in files:
 				patch = readfile(patch_filename)
@@ -279,14 +286,21 @@ class Submodule:
 				self.src_hash = extend(self.src_hash, [patch])
 				#print(self.name + ": patch file " + patch_filename, self.src_hash)
 
+		# if the name includes its own version, don't double append it
+		if self.name.endswith(self.version):
+			src_subdir = self.name
+		else:
+			src_subdir = self.name + "-" + self.version
+
 		if self.dirty:
 			# the src_subdir is based on the output hash,
 			# not the src hash, since it writes to the
-			# directory
-			src_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
+			# directory.
+			src_subdir = os.path.join(src_subdir, self.out_hash[0:16])
 			self.src_dir = os.path.abspath(os.path.join(out_dir, src_subdir))
 		else:
-			src_subdir = os.path.join(self.name + "-" + self.version, self.src_hash[0:16])
+			# unpack the clean source in its own directory
+			src_subdir = os.path.join(src_subdir, self.src_hash[0:16])
 			self.src_dir = os.path.abspath(os.path.join(src_dir, src_subdir))
 		self.update_dict()
 
@@ -299,12 +313,12 @@ class Submodule:
 			return self
 
 		if self.dirty:
-			info("CLEANUP " + self.name)
+			info("CLEANUP " + self.fullname)
 			system("rm", "-rf", self.src_dir)
 
 		mkdir(self.src_dir)
 
-		info("UNPACK  " + self.name + ": " + relative(self.tar_file) + " -> " + relative(self.src_dir))
+		info("UNPACK  " + self.fullname + ": " + relative(self.tar_file) + " -> " + relative(self.src_dir))
 		system("tar",
 			"-xf", self.tar_file,
 			"-C", self.src_dir,
@@ -339,7 +353,7 @@ class Submodule:
 		mkdir(self.out_dir)
 
 		for (patch_file,patch) in self.patches:
-			info("PATCH   " + self.name + ": " + relative(patch_file))
+			info("PATCH   " + self.fullname + ": " + relative(patch_file))
 
 			with NamedTemporaryFile() as tmp:
 				tmp.write(patch)
@@ -401,13 +415,17 @@ class Submodule:
 
 #		print(self.name + ": ", new_out_hash, self.src_hash)
 		if new_out_hash != self.out_hash and self.out_hash != zero_hash:
-			print(self.name + ": HASH CHANGED ", new_out_hash, self.out_hash)
+			print(self.fullname + ": HASH CHANGED ", new_out_hash, self.out_hash)
 			exit(-1)
 		self.out_hash = new_out_hash
 
 		# todo: include more configuration in the out_hash (dirty, inc_dir, etc)
+		if self.name.endswith(self.version):
+			out_subdir = self.name
+		else:
+			out_subdir = self.name + "-" + self.version
 
-		out_subdir = os.path.join(self.name + "-" + self.version, self.out_hash[0:16])
+		out_subdir = os.path.join(out_subdir, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
 		self.install_dir = os.path.join(self.out_dir, self._install_dir)
@@ -473,7 +491,7 @@ class Submodule:
 		writefile(kconfig_file, b'\n'.join(configs))
 
 		if self.configure_commands:
-			info("CONFIG  " + self.name)
+			info("CONFIG  " + self.fullname)
 			self.run_commands("configure-log", self.configure_commands)
 
 		writefile(config_canary, b'')
@@ -520,7 +538,7 @@ class Submodule:
 			return self
 
 		if self.make_commands:
-			info("BUILD   " + self.name)
+			info("BUILD   " + self.fullname)
 			self.run_commands("make-log", self.make_commands)
 
 		writefile(build_canary, b'')
@@ -540,7 +558,7 @@ class Submodule:
 			return self
 
 		if self.install_commands:
-			info("INSTALL " + self.name)
+			info("INSTALL " + self.fullname)
 			self.run_commands("install-log", self.install_commands)
 
 		if self.report_hashes:
