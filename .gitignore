@@ -25,3 +25,6 @@ init
 __pycache__
 *.log
 *.cpio
+*.hashes
+lib*.so.*
+a.out
