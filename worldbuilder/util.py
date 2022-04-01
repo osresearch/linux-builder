@@ -11,6 +11,7 @@ from threading import Thread
 from time import sleep, asctime
 from graphlib import TopologicalSorter  # requires python3.9
 from glob import glob
+from shlex import quote
 
 def now():
 	return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -88,3 +89,11 @@ def readfiles(names):
 def relative(dirname):
 	#abs_build = os.path.abspath(build_dir)
 	return os.path.relpath(dirname)
+
+def make_env(vars):
+	outvars=[]
+	for v in vars:
+		(name,val) = v.split("=",1)
+		outvars.append(name + "=" + quote(val))
+	return outvars
+
