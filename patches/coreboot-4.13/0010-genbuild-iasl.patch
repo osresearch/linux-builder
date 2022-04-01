@@ -1,0 +1,28 @@
+diff -u --recursive ../../clean/coreboot-4.13/util/genbuild_h/genbuild_h.sh 683d5b969e75b346/util/genbuild_h/genbuild_h.sh
+--- ../../clean/coreboot-4.13/util/genbuild_h/genbuild_h.sh	2020-11-20 12:01:35.000000000 +0000
++++ 683d5b969e75b346/util/genbuild_h/genbuild_h.sh	2022-04-01 18:56:21.820182853 +0000
+@@ -47,7 +47,9 @@
+ esac
+ }
+ 
+-IASL=util/crossgcc/xgcc/bin/iasl
++if [ -z "$IASL" ]; then
++	IASL=util/crossgcc/xgcc/bin/iasl
++fi
+ eval $(grep ^IASL:= "$XCOMPILE" 2>/dev/null | sed s,:=,=,)
+ 
+ #Print out the information that goes into build.h
+diff -u --recursive ../../clean/coreboot-4.13/util/xcompile/xcompile 683d5b969e75b346/util/xcompile/xcompile
+--- ../../clean/coreboot-4.13/util/xcompile/xcompile	2020-11-20 12:01:35.000000000 +0000
++++ 683d5b969e75b346/util/xcompile/xcompile	2022-04-01 18:57:19.255907428 +0000
+@@ -50,7 +50,9 @@
+ }
+ 
+ 
+-if [ "$("${XGCCPATH}/iasl" 2>/dev/null | grep -c ACPI)" -gt 0 ]; then
++if [ -n "${IASL}" ]; then
++	true
++elif [ "$("${XGCCPATH}/iasl" 2>/dev/null | grep -c ACPI)" -gt 0 ]; then
+ 	IASL=${XGCCPATH}iasl
+ elif [ "$(iasl 2>/dev/null | grep -c ACPI)" -gt 0 ]; then
+ 	IASL=iasl
