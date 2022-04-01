@@ -70,6 +70,13 @@ worldbuilder.Submodule("coreboot_blobs-" + coreboot_version,
 	],
 )
 
+def make_env(vars):
+	outvars=[]
+	for v in vars:
+		(name,val) = v.split("=",1)
+		outvars.append(name + "=" + quote(val))
+	return outvars
+
 
 initrd_file = '%(initrd-'+board+'.install_dir)s/initrd.cpio.xz'
 kernel_file = '%(linux-'+kernel+'.install_dir)s/bzImage'
@@ -101,11 +108,12 @@ coreboot = worldbuilder.Submodule("coreboot-" + board,
 		*extra_env,
 	],
 
-	make = [
+	# work around a bug in make that doesn't pass command line vars in the environment
+	make = [ "bash", "-c", " ".join([
+		*make_env(extra_env),
 		"make",
 		"-C%(coreboot_src-"+coreboot_version+".src_dir)s",
-		*extra_env,
-	],
+	])],
 
 	install_dir = '',
 	bin_dir = board,

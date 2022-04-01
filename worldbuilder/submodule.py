@@ -268,15 +268,16 @@ class Submodule:
 		self.patches = []
 		for filename in self.patch_files:
 			expanded = self.format(filename)
-			files = glob(expanded)
+			files = sorted(glob(expanded))
 			if len(files) == 0:
 				# files are missing!
 				print(self.name + ": no match for " + expanded + "(originally " + filename + ")", file=sys.stderr)
 				return False
-			for patch_filename in sorted(files):
+			for patch_filename in files:
 				patch = readfile(patch_filename)
 				self.patches.append([patch_filename, patch])
 				self.src_hash = extend(self.src_hash, [patch])
+				#print(self.name + ": patch file " + patch_filename, self.src_hash)
 
 		if self.dirty:
 			# the src_subdir is based on the output hash,

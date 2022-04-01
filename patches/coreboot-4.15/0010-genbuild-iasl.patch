@@ -1,0 +1,32 @@
+--- ../../clean/coreboot-4.15/util/genbuild_h/genbuild_h.sh	2021-11-09 15:49:46.000000000 +0000
++++ 18c82f9236843b47/util/genbuild_h/genbuild_h.sh	2022-04-01 09:53:41.944914614 +0000
+@@ -51,10 +51,12 @@
+ # Look for IASL in XGCCPATH and xcompile.  Unfortunately,
+ # xcompile isn't available on the first build.
+ # If neither of those gives a valid iasl, check the path.
+-IASL="${XGCCPATH}iasl"
+-eval $(grep ^IASL:= "$XCOMPILE" 2>/dev/null | sed s,:=,=,)
+-if [ ! -x "${IASL}" ]; then
+-	IASL=$(command -v iasl)
++if [ -z "${IASL}" ]; then
++	IASL="${XGCCPATH}iasl"
++	eval $(grep ^IASL:= "$XCOMPILE" 2>/dev/null | sed s,:=,=,)
++	if [ ! -x "${IASL}" ]; then
++		IASL=$(command -v iasl)
++	fi
+ fi
+ IASLVERSION="$(${IASL} -v | grep version | sed 's/.*version //')" >/dev/null
+ 
+--- ../../clean/coreboot-4.15/util/xcompile/xcompile	2021-11-09 15:49:46.000000000 +0000
++++ 67705c5ad4adc865/util/xcompile/xcompile	2022-04-01 12:08:27.348277736 +0000
+@@ -52,7 +52,9 @@
+ }
+ 
+ 
+-if [ "$("${XGCCPATH}/iasl" 2>/dev/null | grep -c ACPI)" -gt 0 ]; then
++if [ -n "${IASL}" ]; then
++	true
++elif [ "$("${XGCCPATH}/iasl" 2>/dev/null | grep -c ACPI)" -gt 0 ]; then
+ 	IASL=${XGCCPATH}/iasl
+ elif [ "$(iasl 2>/dev/null | grep -c ACPI)" -gt 0 ]; then
+ 	IASL=iasl
