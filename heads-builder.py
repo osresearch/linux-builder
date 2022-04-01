@@ -13,7 +13,8 @@ from worldbuilder.util import extend, zero_hash, sha256hex, exists, mkdir, write
 from worldbuilder.submodule import global_mods
 from worldbuilder import commands
 
-from worldbuilder.crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, musl, cross_gcc
+from worldbuilder.crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, target_arch, musl, cross_gcc
+from worldbuilder import crosscompile
 
 board = 'qemu'
 kernel = 'virtio'

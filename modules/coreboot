@@ -32,21 +32,25 @@ default_extra_flags = "-Wno-error=packed-not-aligned -Wno-error=address-of-packe
 
 config = versions[coreboot_version]
 
-libgcc="%(binutils32.lib_dir)s/gcc/i386-linux-musl/%(gcc32.version)s/libgcc.a"
-
 extra_env = [
 	"V=1",
 	"obj=%(out_dir)s/" + board,
 	"DOTCONFIG=%(out_dir)s/.config",
 	"IASL=%(iasl.bin_dir)s/iasl",
-	"CC_x86_32=%(binutils32.bin_dir)s/i386-linux-musl-gcc",
-	"LD_x86_32=%(binutils32.bin_dir)s/i386-linux-musl-ld",
-	"OPT_LIBS=" + libgcc,
+	"OPT_LIBS=" + crosscompile.libgcc32,
 	"XGCCPATH=%(binutils32.bin_dir)s",
 	"CFLAGS_x86_32=" + config.get("extra_flags", default_extra_flags),
 	"BUILD_TIMELESS=1",
-	#*cross_tools32_nocc,
+	*cross_tools32_nocc,
 ]
+
+# add in all of the cross compiler tools
+extra_env.append("CC_x86_64=" + crosscompile.cross + "gcc")
+extra_env.append("CC_x86_32=" + crosscompile.cross32 + "gcc")
+for tool in crosscompile.tools:
+	extra_env.append(tool.upper() + "_x86_64=" + crosscompile.cross + tool)
+for tool in crosscompile.tools:
+	extra_env.append(tool.upper() + "_x86_32=" + crosscompile.cross32 + tool)
 
 worldbuilder.Submodule("coreboot_src-" + coreboot_version,
 	depends = [ "linux", "gcc32", "iasl" ],
@@ -109,10 +113,12 @@ coreboot = worldbuilder.Submodule("coreboot-" + board,
 	],
 
 	# work around a bug in make that doesn't pass command line vars in the environment
+	# which prevents the local iasl binary from being used by subshells
 	make = [ "bash", "-c", " ".join([
-		*make_env(extra_env),
+		"IASL='%(iasl.bin_dir)s/iasl'",
 		"make",
 		"-C%(coreboot_src-"+coreboot_version+".src_dir)s",
+		*make_env(extra_env),
 	])],
 
 	install_dir = '',
