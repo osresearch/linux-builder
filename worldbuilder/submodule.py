@@ -67,6 +67,7 @@ class Submodule:
 		strip_components = 1,
 		bins = None,
 		libs = None,
+		report_hashes = False,
 	):
 		#if not url and not git:
 			#raise RuntimeError("url or git must be specified")
@@ -77,6 +78,7 @@ class Submodule:
 		self.name = name
 		self.url = url
 		#self.git = git
+		self.report_hashes = report_hashes
 		self.version = "NOVERSION" if not version else version
 		self.tarhash = tarhash
 		self.patch_files = patches or []
@@ -316,14 +318,18 @@ class Submodule:
 	def patch(self, check=False):
 		if not self.url:
 			# this is a fake package with no source
-			self.patched = True
+			if len(self.patch_files) > 0:
+				self.patched = True
+			else:
+				self.unpacked = True
 			return self
 
 		if not self.unpack(check):
 			return False
 		patch_canary = os.path.join(self.src_dir, '.patched')
 		if exists(patch_canary):
-			self.patched = True
+			if len(self.patch_files) > 0:
+				self.patched = True
 			return self
 
 		if check:
@@ -346,7 +352,8 @@ class Submodule:
 				)
 
 		writefile(patch_canary, b'')
-		self.patched = True
+		if len(self.patch_files) > 0:
+			self.patched = True
 		return self
 
 	def update_hashes(self, config_file_hash):
@@ -459,7 +466,7 @@ class Submodule:
 
 		# expand the configuration appended lines now
 		for append in self.config_append:
-			print(self.name + ": adding " + append)
+			#print(self.name + ": adding " + append)
 			configs.append(self.format(append).encode('utf-8'))
 
 		writefile(kconfig_file, b'\n'.join(configs))
@@ -534,6 +541,16 @@ class Submodule:
 		if self.install_commands:
 			info("INSTALL " + self.name)
 			self.run_commands("install-log", self.install_commands)
+
+		if self.report_hashes:
+			for filename in self.bins:
+				full_name = os.path.join(self.bin_dir, filename)
+				file_hash = sha256hex(readfile(full_name))
+				print(relative(full_name) + ": " + file_hash)
+			for filename in self.libs:
+				full_name = os.path.join(self.bin_dir, filename)
+				file_hash = sha256hex(readfile(full_name))
+				print(relative(full_name) + ": " + file_hash)
 
 		writefile(install_canary, b'')
 		self.installed = True
