@@ -16,7 +16,7 @@ def now():
 	return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 zero_hash = '0' * 64
-verbose = 0
+verbose = 1
 
 def sha256hex(data):
 	#print("hashing %d bytes" % (len(data)), data)
