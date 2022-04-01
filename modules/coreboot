@@ -63,7 +63,11 @@ worldbuilder.Submodule("coreboot_blobs-" + coreboot_version,
 	url = "https://www.coreboot.org/releases/coreboot-blobs-%(version)s.tar.xz",
 	tarhash = config["blobs_hash"],
 	strip_components = 3,
-	make = [ "ln", "-sf", "%(src_dir)s", "%(coreboot_src-"+coreboot_version+".src_dir)s/3rdparty/blobs" ],
+	make = [
+		"ln", "-sf",
+		"%(src_dir)s",
+		"%(coreboot_src-"+coreboot_version+".src_dir)s/3rdparty/blobs",
+	],
 )
 
 
@@ -73,79 +77,44 @@ kernel_file = '%(linux-'+kernel+'.install_dir)s/bzImage'
 coreboot = worldbuilder.Submodule("coreboot-" + board,
 	version = coreboot_version,
 	depends = [
-		"initrd-"+board,
+		"initrd-" + board,
 		"linux-" + kernel,
 		"coreboot_src-" + coreboot_version,
 		"coreboot_blobs-" + coreboot_version,
 	],
+
 	config_files = [ "config/coreboot-" + board + ".config" ],
+
 	dep_files = [ initrd_file, kernel_file ],
+
 	config_append = [
 		'CONFIG_LINUX_INITRD="' + initrd_file + '"',
 		'CONFIG_PAYLOAD_FILE="' + kernel_file + '"',
+		'CONFIG_LOCALVERSION="%(out_hash)s"',
+		'CONFIG_MAINBOARD_SMBIOS_PRODUCT_NAME="' + board + '"',
 	],
+
 	configure = [
 		"make",
 		"olddefconfig",
 		"-C%(coreboot_src-"+coreboot_version+".src_dir)s",
 		*extra_env,
-#	&& echo 'CONFIG_LOCALVERSION="Heads-$(HEADS_GIT_VERSION)"' >> $(build)/$(coreboot_dir)/.config \
-#	&& echo 'CONFIG_MAINBOARD_SMBIOS_PRODUCT_NAME="$(BOARD)"' >> $(build)/$(coreboot_dir)/.config \
 	],
+
 	make = [
 		"make",
 		"-C%(coreboot_src-"+coreboot_version+".src_dir)s",
 		*extra_env,
 	],
+
+	install_dir = '',
+	bin_dir = board,
+
+	bins = [ "coreboot.rom" ],
+	report_hashes = True,
 )
 
 """
-if 
-
-## there is nothing to build for the blobs, this should be
-## made easier to make happen
-coreboot-blobs_output := .built
-coreboot-blobs_configure := echo -e 'all:\n\ttouch .built' > Makefile
-
-endif
-endif
-
-COREBOOT_IASL="$(build)/$(coreboot_base_dir)/util/crossgcc/xgcc/bin/iasl"
-
-# coreboot is built with the 32-bit compiler; ideally we could use the same
-# x86_64-linux-musl -m32 to build it, but this causes some link errors that need
-# to be tracked down.
-#	CROSS="$(CROSS)" \
-
-coreboot_target := \
-	-C "$(build)/$(coreboot_base_dir)" \
-	obj="$(build)/$(coreboot_dir)" \
-	CROSS="$(dir $(CROSS))i386-linux-musl-" \
-	IASL="$(COREBOOT_IASL)" \
-	DOTCONFIG="$(build)/$(coreboot_dir)/.config" \
-	BUILD_TIMELESS=1 \
-	CFLAGS_x86_32="$(EXTRA_FLAGS)" \
-	CFLAGS_x86_64="$(EXTRA_FLAGS)" \
-	$(MAKE_JOBS)
-
-coreboot_output := $(CONFIG_COREBOOT_ROM)
-coreboot_output += $(CONFIG_COREBOOT_BOOTBLOCK)
-coreboot_depend += linux initrd $(musl_dep)
-
-COREBOOT_TOOLCHAIN="$(build)/$(coreboot_base_dir)/.xcompile"
-$(COREBOOT_TOOLCHAIN): $(build)/$(coreboot_base_dir)/.canary
-	$(MAKE) -C "$(build)/$(coreboot_base_dir)" CPUS=$(CPUS) crossgcc-i386
-
-$(build)/$(coreboot_dir)/.configured: $(COREBOOT_TOOLCHAIN)
-
-# Force a rebuild if the inputs have changed
-$(build)/$(coreboot_dir)/.build: \
-	$(build)/$(BOARD)/bzImage \
-	$(build)/$(BOARD)/initrd.cpio.xz \
-
-# This produces a ROM image that is written with the flashrom program
-ifneq ($(CONFIG_COREBOOT),)
-
 $(build)/$(BOARD)/$(CB_OUTPUT_FILE): $(build)/$(coreboot_dir)/.build
 	# Use coreboot.rom, because custom output files might not be processed by cbfstool
 	"$(build)/$(coreboot_dir)/cbfstool" "$(dir $<)coreboot.rom" print
