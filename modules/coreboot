@@ -37,20 +37,14 @@ extra_env = [
 	"obj=%(out_dir)s/" + board,
 	"DOTCONFIG=%(out_dir)s/.config",
 	"IASL=%(iasl.bin_dir)s/iasl",
-	"OPT_LIBS=" + crosscompile.libgcc32,
-	"XGCCPATH=%(binutils32.bin_dir)s",
+	"CROSS_COMPILE_x86=" + crosscompile.cross32,
+	"CROSS_COMPILE_x64=" + crosscompile.cross,
+	"CC_x86_32=" + crosscompile.cross32 + "gcc",
+	"CC_x86_64=" + crosscompile.cross + "gcc",
 	"CFLAGS_x86_32=" + config.get("extra_flags", default_extra_flags),
 	"BUILD_TIMELESS=1",
 	*cross_tools32_nocc,
 ]
-
-# add in all of the cross compiler tools
-extra_env.append("CC_x86_64=" + crosscompile.cross + "gcc")
-extra_env.append("CC_x86_32=" + crosscompile.cross32 + "gcc")
-for tool in crosscompile.tools:
-	extra_env.append(tool.upper() + "_x86_64=" + crosscompile.cross + tool)
-for tool in crosscompile.tools:
-	extra_env.append(tool.upper() + "_x86_32=" + crosscompile.cross32 + tool)
 
 worldbuilder.Submodule("coreboot_src-" + coreboot_version,
 	depends = [ "linux", "gcc32", "iasl" ],
@@ -115,10 +109,9 @@ coreboot = worldbuilder.Submodule("coreboot-" + board,
 	# work around a bug in make that doesn't pass command line vars in the environment
 	# which prevents the local iasl binary from being used by subshells
 	make = [ "bash", "-c", " ".join([
-		"IASL='%(iasl.bin_dir)s/iasl'",
+		*make_env(extra_env),
 		"make",
 		"-C%(coreboot_src-"+coreboot_version+".src_dir)s",
-		*make_env(extra_env),
 	])],
 
 	install_dir = '',
