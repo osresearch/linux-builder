@@ -3,16 +3,17 @@
 #
 import worldbuilder
 import cpiofile
-import initrd
 import os
 import sys
 import traceback
 import glob
 from shlex import quote
 
-from worldbuilder import extend, zero_hash, sha256hex, global_mods, exists, mkdir, writefile
+from worldbuilder.util import extend, zero_hash, sha256hex, exists, mkdir, writefile
+from worldbuilder.submodule import global_mods
+from worldbuilder import commands
 
-from crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, musl, cross_gcc
+from worldbuilder.crosscompile import gcc, crossgcc, cross_tools_nocc, cross_tools32_nocc, cross_tools, cross, target_arch, musl, cross_gcc
 
 board = 'qemu'
 kernel = 'virtio'
@@ -26,7 +27,7 @@ for modname in sorted(glob.glob("modules/*")):
 		print(traceback.format_exc(), file=sys.stderr)
 		exit(1)
 
-initrdfile = initrd.Initrd(board,
+initrdfile = worldbuilder.Initrd(board,
 	filename = "initrd.cpio.xz",
 	depends = [
 		"fbwhiptail",

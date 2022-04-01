@@ -24,7 +24,7 @@ linux_src = worldbuilder.Submodule("linux",
 # if one is not specified.  This creates a tiny one with
 # just the /dev/console required to boot the kernel.
 #
-devinitrd = initrd.Initrd("dev",
+devinitrd = worldbuilder.Initrd("dev",
 	filename = "initrd.cpio",
 	version = "0.0.0",
 	add_hashes = False,

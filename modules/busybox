@@ -5,7 +5,7 @@
 busybox_cflags = 'CFLAGS=' \
 	+ '-DBB_EXTRA_VERSION=\'"%(out_hash)s"\' ' \
 	+ '-I%(linux.inc_dir)s ' \
-	+ worldbuilder.prefix_map \
+	+ commands.prefix_map \
 
 worldbuilder.Submodule("busybox",
 	depends = [ "gcc", "linux" ],
@@ -23,13 +23,13 @@ worldbuilder.Submodule("busybox",
 		busybox_cflags,
 	],
 	make = [
-		*worldbuilder.kbuild_make,
+		*commands.kbuild_make,
 		"V=1",
 		*cross_tools,
 		busybox_cflags,
 	],
 	install = [
-		*worldbuilder.kbuild_make,
+		*commands.kbuild_make,
 		"V=1",
 		"install",
 		*cross_tools,

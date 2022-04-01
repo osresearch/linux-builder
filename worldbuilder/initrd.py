@@ -1,12 +1,12 @@
 # an in-memory initrd builder
-import worldbuilder
 import cpiofile
 import os
 import sys
 
-from worldbuilder import sha256hex, zero_hash, extend, mkdir, writefile, readfile, relative, info, exists
+from worldbuilder.util import *
+from worldbuilder.submodule import Submodule
 
-class Initrd(worldbuilder.Submodule):
+class Initrd(Submodule):
 	def __init__(self,
 		name,
 		version = "0.0.1",

@@ -5,16 +5,16 @@ worldbuilder.Submodule("pixman",
 	tarhash = '21b6b249b51c6800dc9553b65106e1e37d0e25df942c90531d4c3997aa20a88e',
 
 	configure = [ [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=/",
 		"--host=x86_64-linux-gnu",
 		"--target=" + target_arch,
 		"--disable-gtk",
 		*cross_tools,
-		"CFLAGS=-I%(libpng.inc_dir)s -I%(zlib.inc_dir)s" + worldbuilder.prefix_map,
+		"CFLAGS=-I%(libpng.inc_dir)s -I%(zlib.inc_dir)s" + commands.prefix_map,
 		"LDFLAGS=-L%(libpng.lib_dir)s -lpng16 -L%(zlib.lib_dir)s -lz",
 		],
- 		worldbuilder.fix_libtool,
+ 		commands.fix_libtool,
 	],
 
 	inc_dir = "include/pixman-1",
@@ -25,8 +25,8 @@ worldbuilder.Submodule("pixman",
 
 	install = [
 		[ "make", "install", "DESTDIR=%(install_dir)s", ],
-		worldbuilder.delete_la,
-		worldbuilder.strip_libs,
+		commands.delete_la,
+		commands.strip_libs,
 	],
 
 	libs = [ "libpixman-1.so.0" ],

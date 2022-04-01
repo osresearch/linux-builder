@@ -9,7 +9,7 @@ worldbuilder.Submodule("cairo",
 	],
 
 	configure = [ [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=/",
 		"--host=x86_64-linux-gnu",
 		"--target=" + target_arch,
@@ -27,7 +27,7 @@ worldbuilder.Submodule("cairo",
 			+ "-I%(pixman.inc_dir)s "
 			+ "-I%(libpng.inc_dir)s "
 			+ "-I%(zlib.inc_dir)s "
-			+ worldbuilder.prefix_map,
+			+ commands.prefix_map,
 		"LDFLAGS="
 			+ "-L%(pixman.lib_dir)s -lpixman-1 "
 			+ "-L%(libpng.lib_dir)s -lpng16 "
@@ -35,7 +35,7 @@ worldbuilder.Submodule("cairo",
 		*cross_tools,
 		"PKG_CONFIG=/bin/true", # otherwise it complains
 		],
-		worldbuilder.fix_libtool,
+		commands.fix_libtool,
 	],
 
 	make = [
@@ -44,8 +44,8 @@ worldbuilder.Submodule("cairo",
 
 	install = [
 		[ "make", "install", "DESTDIR=%(install_dir)s" ],
-		worldbuilder.delete_la,
-		worldbuilder.strip_libs,
+		commands.delete_la,
+		commands.strip_libs,
 	],
 
 	libs = [ "libcairo.so.2" ],

@@ -1,6 +1,7 @@
 # Build a GCC cross compiler
 #
 import worldbuilder
+from worldbuilder import commands
 
 target_arch = "x86_64-linux-musl"
 target_arch32 = "i386-linux-musl"
@@ -10,7 +11,7 @@ gmp = worldbuilder.Submodule("gmp",
 	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
 	tarhash = 'fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2',
 	configure = [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=%(install_dir)s",
 		"--enable-static=yes",
 		"--enable-shared=no",
@@ -26,7 +27,7 @@ mpfr = worldbuilder.Submodule("mpfr",
 	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
 	tarhash = '0c98a3f1732ff6ca4ea690552079da9c597872d30e96ec28414ee23c95558a7f',
 	configure = [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=%(install_dir)s",
 		"--enable-static=yes",
 		"--enable-shared=no",
@@ -42,7 +43,7 @@ mpc = worldbuilder.Submodule("mpc",
 	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.gz",
 	tarhash = '17503d2c395dfcf106b622dc142683c1199431d095367c6aacba6eec30340459',
 	configure = [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=%(install_dir)s",
 		"--with-mpfr=%(mpfr.install_dir)s",
 		"--with-gmp=%(gmp.install_dir)s",
@@ -96,7 +97,7 @@ bison = worldbuilder.Submodule("bison",
 	url = "https://ftp.gnu.org/gnu/%(name)s/%(name)s-%(version)s.tar.xz",
 	tarhash = '9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2',
 	configure = [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=%(install_dir)s",
 		"PKG_CONFIG=/bin/false",
 	],
@@ -164,7 +165,7 @@ crossgcc_configure_cmds = [
 	"--disable-libssp",
 	"--disable-libgomp",
 	"--disable-libquadmath",
-	"CFLAGS=" + worldbuilder.prefix_map,
+	"CFLAGS=" + commands.prefix_map,
 ]
 
 crossgcc = worldbuilder.Submodule("crossgcc",
@@ -223,7 +224,7 @@ musl = worldbuilder.Submodule("musl",
 		"CC=" + cross + "gcc",
 		"CFLAGS="
 			+ "-ffast-math -O3 " # avoid libgcc circular math dependency
-			+ worldbuilder.prefix_map,
+			+ commands.prefix_map,
 		"PKG_CONFIG=/bin/false",
 		*cross_tools_nocc,
 	],
@@ -248,7 +249,7 @@ musl32 = worldbuilder.Submodule("musl32",
 		"CC=" + cross32 + "gcc",
 		"CFLAGS="
 			+ "-ffast-math -O3 " # avoid libgcc circular math dependency
-			+ worldbuilder.prefix_map,
+			+ commands.prefix_map,
 		"PKG_CONFIG=/bin/false",
 		"LDFLAGS=-Wl,--unresolved-symbols=ignore-in-object-files", # also libgcc issue
 		*cross_tools32_nocc,
@@ -280,7 +281,7 @@ gcc = worldbuilder.Submodule("gcc",
 		"CFLAGS_FOR_TARGET="
 			+ "-I%(musl.install_dir)s/include "
 			+ "-B%(musl.install_dir)s/lib "
-			+ worldbuilder.prefix_map,
+			+ commands.prefix_map,
 		"PKG_CONFIG=/bin/false",
 		*gcc_cross_tools,
 	],
@@ -301,7 +302,7 @@ gcc32 = worldbuilder.Submodule("gcc32",
 		"CFLAGS_FOR_TARGET="
 			+ "-I%(musl32.install_dir)s/include "
 			+ "-B%(musl32.install_dir)s/lib "
-			+ worldbuilder.prefix_map,
+			+ commands.prefix_map,
 		"PKG_CONFIG=/bin/false",
 		*gcc_cross32_tools,
 	],

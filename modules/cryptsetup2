@@ -5,7 +5,7 @@ worldbuilder.Submodule("cryptsetup2",
 	tarhash = "3bca4ffe39e2f94cef50f6ea65acb873a6dbce5db34fc6bcefe38b6d095e82df",
 
 	configure = [ [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--host=x86_64-gnu-linux",
 		"--target=" + target_arch,
 		"--prefix=/",
@@ -22,7 +22,7 @@ worldbuilder.Submodule("cryptsetup2",
 			+ "-I%(linux.inc_dir)s "
 			+ "-I%(popt.inc_dir)s "
 			+ "-I%(json-c.inc_dir)s "
-			+ worldbuilder.prefix_map,
+			+ commands.prefix_map,
 		"LDFLAGS="
 			+ "-L%(lvm2.lib_dir)s -ldevmapper "
 			+ "-L%(json-c.lib_dir)s -ljson-c "
@@ -30,15 +30,15 @@ worldbuilder.Submodule("cryptsetup2",
 			+ "-L%(popt.lib_dir)s -lpopt "
 			+ "",
 		],
-		worldbuilder.fix_libtool,
+		commands.fix_libtool,
 	],
 
 	make = [ "make" ],
 
 	install = [
 		[ "make", "install", "DESTDIR=%(install_dir)s" ],
-		worldbuilder.delete_la,
-		worldbuilder.strip_libs,
+		commands.delete_la,
+		commands.strip_libs,
 	],
 
 	bin_dir = "sbin",

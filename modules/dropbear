@@ -7,7 +7,7 @@ worldbuilder.Submodule("dropbear",
 	patches = [ "patches/dropbear-%(version)s.patch", ],
 
 	configure = [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=%(install_dir)s",
 		"--host=x86_64-linux-gnu",
 		"--disable-syslog",
@@ -17,7 +17,7 @@ worldbuilder.Submodule("dropbear",
 		"--disable-wtmp",
 		"--disable-wtmpx",
 		"--with-zlib=%(zlib.install_dir)s",
-		"CFLAGS=-I%(linux.inc_dir)s -I%(out_dir)s -I%(src_dir)s -I%(src_dir)s/libtommath " + worldbuilder.prefix_map,
+		"CFLAGS=-I%(linux.inc_dir)s -I%(out_dir)s -I%(src_dir)s -I%(src_dir)s/libtommath " + commands.prefix_map,
 		*cross_tools,
 	],
 	make = [

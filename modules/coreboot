@@ -28,7 +28,7 @@ if not board:
 if not kernel:
 	kernel = board
 
-default_extra_flags = "-Wno-error=packed-not-aligned -Wno-error=address-of-packed-member " + worldbuilder.prefix_map
+default_extra_flags = "-Wno-error=packed-not-aligned -Wno-error=address-of-packed-member " + commands.prefix_map
 
 config = versions[coreboot_version]
 

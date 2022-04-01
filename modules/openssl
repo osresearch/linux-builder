@@ -5,7 +5,7 @@ worldbuilder.Submodule("openssl",
 	tarhash = "40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a",
 	dirty = True,
 	configure = [ "bash", "-c", " ".join([
-		"CFLAGS=" + quote(worldbuilder.prefix_map),
+		"CFLAGS=" + quote(commands.prefix_map),
 		*cross_tools,
 		"%(src_dir)s/Configure",
 		"--prefix=%(install_dir)s",

@@ -6,7 +6,7 @@ worldbuilder.Submodule("lvm2",
 	patches = [ "patches/lvm2-%(version)s.patch", ],
 
 	configure = [
-		worldbuilder.configure_cmd,
+		commands.configure_cmd,
 		"--prefix=/",
 		"MODPROBE_CMD=/bin/false",
 		"ac_cv_func_malloc_0_nonnull=yes",
@@ -27,14 +27,14 @@ worldbuilder.Submodule("lvm2",
 		"--disable-cache_check_needs_check",
 		"--disable-thin_check_needs_check",
 		"--with-cluster=none",
-		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
+		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + commands.prefix_map,
 		*cross_tools,
 	],
 
 	make = [
 		"make",
 		"all",
-		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + worldbuilder.prefix_map,
+		"CFLAGS=-fPIC -I%(linux.inc_dir)s " + commands.prefix_map,
 		*cross_tools,
 	],
 
