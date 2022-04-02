@@ -279,7 +279,7 @@ class Submodule:
 			if len(files) == 0:
 				# files are missing!
 				print(self.fullname + ": no match for " + expanded + "(originally " + filename + ")", file=sys.stderr)
-				return False
+				#return False
 			for patch_filename in files:
 				patch = readfile(patch_filename)
 				self.patches.append([patch_filename, patch])
