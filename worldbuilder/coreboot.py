@@ -126,7 +126,11 @@ def Coreboot(
 		],
 		config_files = [ config ],
 		dep_files = [ initrd_file, kernel_file ],
+
+		# turn off the config file inclusion so that paths for the
+		# initrd and bzimage don't end up in the rom image.
 		config_append = [
+			'CONFIG_INCLUDE_CONFIG_FILE=n',
 			'CONFIG_LINUX_INITRD="' + initrd_file + '"',
 			'CONFIG_PAYLOAD_FILE="' + kernel_file + '"',
 			'CONFIG_LOCALVERSION="%(out_hash)s"',
