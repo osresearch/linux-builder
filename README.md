@@ -64,7 +64,7 @@ dnf install \
   cmake \
   perl-FindBin perl-File-Compare \
   bc lz4 openssl-devel \
-  flex bison m4
+  flex bison m4 elfutils-libelf-devel
 ```
 
 Debian requirements:
@@ -74,7 +74,7 @@ apt install \
   texinfo \
   bzip2 xz-utils \
   cmake \
-  bc lz4 libssl-dev flex bison m4 rsync
+  bc lz4 libssl-dev flex bison m4 rsync libelf-dev
 ```
 
 ```
