@@ -5,6 +5,7 @@
 from worldbuilder.submodule import Submodule
 from worldbuilder.initrd import Initrd
 from worldbuilder.util import *
+from worldbuilder.commands import prefix_map
 
 versions = {
 	"4.14.62": "51ca4d7e8ee156dc0f19bc7768915cfae41dbb0b4f251e4fa8b178c5674c22ab",
@@ -133,6 +134,7 @@ def Linux(
 			"KBUILD_BUILD_TIMESTAMP=1970-01-01T00:00:00",
 			"KBUILD_BUILD_VERSION=%("+linux_name+".src_hash)s",
 			*cross_tools_if_cross,
+			"KBUILD_CFLAGS=" + prefix_map,
 		],
 		install_dir = "arch/x86/boot",
 		bin_dir = '',
