@@ -56,7 +56,7 @@ def Heads(
 
 	linux_src = LinuxSrc(
 		version = kernel_version,
-		patches = "patches/linux-%(version)s/*",
+		patches = [ "patches/linux-%(version)s/*" ],
 	)
 
 	linux = Linux(

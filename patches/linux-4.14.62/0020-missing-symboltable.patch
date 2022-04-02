@@ -1,0 +1,36 @@
+Thanks to a recent binutils change which doesn't generate unused
+symbols, it's now possible for thunk_64.o be completely empty with
+CONFIG_PREEMPTION: no text, no data, no symbols.
+
+We could edit the Makefile to only build that file when
+CONFIG_PREEMPTION is enabled, but that will likely create confusion
+if/when the thunks end up getting used by some other code again.
+
+Just ignore it and move on.
+
+Reported-by: Nathan Chancellor <natechancellor@xxxxxxxxx>
+Signed-off-by: Josh Poimboeuf <jpoimboe@xxxxxxxxxx>
+---
+ tools/objtool/elf.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/tools/objtool/elf.c b/tools/objtool/elf.c
+index be89c741ba9a..2b0f4f52f7b5 100644
+--- a/tools/objtool/elf.c
++++ b/tools/objtool/elf.c
+@@ -380,8 +380,11 @@ static int read_symbols(struct elf *elf)
+ 
+ 	symtab = find_section_by_name(elf, ".symtab");
+ 	if (!symtab) {
+-		WARN("missing symbol table");
+-		return -1;
++		/*
++		 * A missing symbol table is actually possible if it's an empty
++		 * .o file.  This can happen for thunk_64.o.
++		 */
++		return 0;
+ 	}
+ 
+ 	symtab_shndx = find_section_by_name(elf, ".symtab_shndx");
+-- 
+2.29.2
