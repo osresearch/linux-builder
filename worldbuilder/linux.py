@@ -48,7 +48,7 @@ def LinuxSrc(
 
 def Linux(
 	name,
-	src = None,
+	linux_src = None,
 	depends = None,
 	compiler = None,
 	initrd = None,
@@ -61,15 +61,15 @@ def Linux(
 		depends = []
 
 	# if they didn't say which kernel, use the default
-	if not src:
-		src = LinuxSrc()
-	depends.append(src)
+	if not linux_src:
+		linux_src = LinuxSrc()
+	depends.append(linux_src)
 
-	if type(src) is str:
-		(linux_name,linux_version) = src.rsplit("-", 1)
+	if type(linux_src) is str:
+		(linux_name,linux_version) = linux_src.rsplit("-", 1)
 	else:
-		linux_version = src.version
-		linux_name = src.name
+		linux_version = linux_src.version
+		linux_name = linux_src.name
 	
 
 # The Linux kernel will create an irreproducible initrd
@@ -98,7 +98,10 @@ def Linux(
 		cross_tools_if_cross = [
 			*compiler.cross_tools_nocc,
 			"CROSS_COMPILE=" + compiler.cross,
-			"CC=" + compiler.cross + "gcc",
+			"CC=" + compiler.cross + "gcc " + prefix_map,
+			#"LD=" + compiler.cross + "ld --build-id=none",
+				#+ " -ffile-prefix-map=%(top_dir)s/out=/build"
+				#+ " -ffile-prefix-map=%(top_dir)s/src=/src"
 		]
 
 	if not config_append:
@@ -127,6 +130,8 @@ def Linux(
 		make = [ 
 			"make",
 			"-C%("+linux_name+".src_dir)s",
+			# fake the relative path
+			#"-C../../../src/"+linux_src.fullname+"/%("+linux_name+".src_hash)s",
 			"O=%(out_dir)s",
 			"V=1",
 			"KBUILD_BUILD_HOST=builder",
@@ -134,7 +139,6 @@ def Linux(
 			"KBUILD_BUILD_TIMESTAMP=1970-01-01T00:00:00",
 			"KBUILD_BUILD_VERSION=%("+linux_name+".src_hash)s",
 			*cross_tools_if_cross,
-			"KBUILD_CFLAGS=" + prefix_map,
 		],
 		install_dir = "arch/x86/boot",
 		bin_dir = '',

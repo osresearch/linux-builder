@@ -61,7 +61,7 @@ def Heads(
 
 	linux = Linux(
 		name = kernel,
-		src = linux_src,
+		linux_src = linux_src,
 		config = "config/linux-" + kernel + ".config",
 		cmdline = cmdline or "console=ttyS0",
 		compiler = worldbuilder.crosscompile,
