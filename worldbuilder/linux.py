@@ -29,6 +29,7 @@ def LinuxSrc(
 		url = "https://cdn.kernel.org/pub/linux/kernel/v%(major)s.x/linux-%(version)s.tar.xz",
 		version = version,
 		tarhash = tarhash,
+		patches = patches,
 		configure = [
 			"make",
 			"-C%(src_dir)s",
