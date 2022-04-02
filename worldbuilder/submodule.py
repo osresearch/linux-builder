@@ -558,7 +558,7 @@ class Submodule:
 			return self
 
 		if self.install_commands:
-			info("INSTALL " + self.fullname)
+			info("INSTALL " + self.fullname + ": " + relative(self.install_dir) )
 			self.run_commands("install-log", self.install_commands)
 
 		if self.report_hashes:
