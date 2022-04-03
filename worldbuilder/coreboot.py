@@ -152,10 +152,14 @@ def Coreboot(
 			"-C%("+coreboot_name+".src_dir)s",
 		])],
 
-		install_dir = '',
-		bin_dir = name,
+		install = [
+			"mv", "%(bin_dir)s/"+name+"/coreboot.rom", "%(install_dir)s/coreboot-"+name+".rom",
+		],
 
-		bins = [ "coreboot.rom" ],
+		install_dir = '',
+		bin_dir = '',
+
+		bins = [ "coreboot-"+ name + ".rom" ],
 		report_hashes = True,
 	)
 

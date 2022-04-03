@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # Build the Heads runtime (coreboot, initrd, kernel) with worldbuilder
+# Currently produces x230 and qemu to demonstrate multiple build targets
 #
 import worldbuilder
 import cpiofile
@@ -122,6 +123,7 @@ if len(sys.argv) > 1:
 	deps = sys.argv[1:]
 else:
 	deps = [ qemu_firmware, x230_firmware ]
+
 
 build = worldbuilder.Builder(deps)
 
