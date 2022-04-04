@@ -37,6 +37,7 @@ build_dir = 'build'
 ftp_dir = os.path.join(build_dir, 'ftp')
 src_dir = os.path.join(build_dir, 'src')
 out_dir = os.path.join(build_dir, 'out')
+install_dir = os.path.join(build_dir, 'install')
 
 # global list of modules; names must be unique
 global_mods = {}
@@ -59,7 +60,7 @@ class Submodule:
 		install = None,
 		depends = None,
 		dep_files = None,
-		install_dir = "install",
+		#install_dir = "install",
 		lib_dir = "lib",
 		bin_dir = "bin",
 		inc_dir = "include",
@@ -68,6 +69,7 @@ class Submodule:
 		bins = None,
 		libs = None,
 		report_hashes = False,
+		cacheable = False,
 	):
 		#if not url and not git:
 			#raise RuntimeError("url or git must be specified")
@@ -96,13 +98,14 @@ class Submodule:
 		self.configure_commands = configure # or [ "true" ]
 		self.make_commands = make  #or [ "true" ]
 		self.install_commands = install  #or [ "true" ]
+		self.cacheable = cacheable
 
 		self.depends = depends or []
 		self.dep_files = dep_files or []
 		self._bin_dir = "bin" if bin_dir is None else bin_dir
 		self._lib_dir = "lib" if lib_dir is None else lib_dir
 		self._inc_dir = "include" if inc_dir is None else inc_dir
-		self._install_dir = "install" if install_dir is None else install_dir
+		#self._install_dir = install_dir # "install" if install_dir is None else install_dir
 
 		# referenced to the install directory
 		# todo: how to handle symlinks?
@@ -270,22 +273,6 @@ class Submodule:
 		if not self.fetch():
 			return False
 
-		self.src_hash = self.tarhash
-
-		self.patches = []
-		for filename in self.patch_files:
-			expanded = self.format(filename)
-			files = sorted(glob(expanded))
-			if len(files) == 0:
-				# files are missing!
-				print(self.fullname + ": no match for " + expanded + "(originally " + filename + ")", file=sys.stderr)
-				#return False
-			for patch_filename in files:
-				patch = readfile(patch_filename)
-				self.patches.append([patch_filename, patch])
-				self.src_hash = extend(self.src_hash, [patch])
-				#print(self.name + ": patch file " + patch_filename, self.src_hash)
-
 		# if the name includes its own version, don't double append it
 		if self.name.endswith(self.version):
 			src_subdir = self.name
@@ -371,7 +358,36 @@ class Submodule:
 			self.patched = True
 		return self
 
-	def update_hashes(self, config_file_hash):
+	def compute_src_hash(self):
+		self.src_hash = self.tarhash or zero_hash
+
+		self.patches = []
+		for filename in self.patch_files:
+			expanded = self.format(filename)
+			files = sorted(glob(expanded))
+			if len(files) == 0:
+				# files are missing!
+				print(self.fullname + ": no match for " + expanded + "(originally " + filename + ")", file=sys.stderr)
+				#return False
+			for patch_filename in files:
+				patch = readfile(patch_filename)
+				self.patches.append([patch_filename, patch])
+				self.src_hash = extend(self.src_hash, [patch])
+				#print(self.name + ": patch file " + patch_filename, self.src_hash)
+
+	def compute_out_hash(self, config_file_hash = zero_hash):
+		# the output hash depends on the source hash,
+		# the source config files, any updates to those files,
+		# the commands executed to configure the programs,
+		# and any dependencies
+		# todo: should the hash be on the unexpanded append lines?
+		self.configs = readfiles(self.config_files)
+		config_file_hash = extend(config_file_hash, self.configs)
+
+		# hash the unexpanded the configuration appended lines first
+		for append in self.config_append:
+			config_file_hash = extend(config_file_hash, append)
+
 		config_hash = zero_hash
 		if self.configure_commands:
 			if  type(self.configure_commands[0]) == str:
@@ -381,7 +397,7 @@ class Submodule:
 				config_hash = extend(config_hash, cmd_hash)
 
 		config_hash = extend(config_hash, [
-			self._install_dir,
+			#self._install_dir,
 			self._inc_dir,
 			self._lib_dir,
 			self._bin_dir,
@@ -428,7 +444,7 @@ class Submodule:
 		out_subdir = os.path.join(out_subdir, self.out_hash[0:16])
 		self.out_dir = os.path.abspath(os.path.join(out_dir, out_subdir))
 		self.rout_dir = os.path.join('..', '..', '..', 'out', out_subdir)
-		self.install_dir = os.path.join(self.out_dir, self._install_dir)
+		self.install_dir = os.path.abspath(os.path.join(install_dir, out_subdir))
 		self.bin_dir = os.path.join(self.install_dir, self._bin_dir)
 		self.lib_dir = os.path.join(self.install_dir, self._lib_dir)
 		self.inc_dir = os.path.join(self.install_dir, self._inc_dir)
@@ -456,20 +472,6 @@ class Submodule:
 		if not self.patch(check):
 			return False
 
-		# the output hash depends on the source hash,
-		# the source config files, any updates to those files,
-		# the commands executed to configure the programs,
-		# and any dependencies
-		# todo: should the hash be on the unexpanded append lines?
-		configs = readfiles(self.config_files)
-		config_file_hash = extend(zero_hash, configs)
-
-		# hash the unexpanded the configuration appended lines first
-		for append in self.config_append:
-			config_file_hash = extend(config_file_hash, append)
-
-		self.update_hashes(config_file_hash)
-
 		config_canary = os.path.join(self.out_dir, ".configured")
 		if exists(config_canary):
 			self.configured = True
@@ -486,9 +488,9 @@ class Submodule:
 		# expand the configuration appended lines now
 		for append in self.config_append:
 			#print(self.name + ": adding " + append)
-			configs.append(self.format(append).encode('utf-8'))
+			self.configs.append(self.format(append).encode('utf-8'))
 
-		writefile(kconfig_file, b'\n'.join(configs))
+		writefile(kconfig_file, b'\n'.join(self.configs))
 
 		if self.configure_commands:
 			info("CONFIG  " + self.fullname)
@@ -547,15 +549,23 @@ class Submodule:
 		return self
 
 	def install(self, force=False, check=False):
+		cache_canary = os.path.join(self.install_dir, ".cache-" + self.name)
+		if exists(cache_canary) and not force:
+			# this is a cached build, do not attempt any further builds
+			self.installed = True
+			return self
+
 		if not self.build(force=force, check=check):
 			return False
 
-		install_canary = os.path.join(self.out_dir, ".install-" + self.name)
+		install_canary = os.path.join(self.install_dir, ".install-" + self.name)
 		if exists(install_canary) and not force:
 			self.installed = True
 			return self
 		if check:
 			return self
+
+		mkdir(self.install_dir)
 
 		if self.install_commands:
 			info("INSTALL " + self.fullname + ": " + relative(self.install_dir) )
@@ -574,4 +584,11 @@ class Submodule:
 		writefile(install_canary, b'')
 		self.installed = True
 
+		if self.cacheable:
+			writefile(cache_canary, b'')
+
 		return self
+
+	def update_hashes(self):
+		self.compute_src_hash()
+		self.compute_out_hash()

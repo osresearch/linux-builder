@@ -93,6 +93,7 @@ class Builder:
 		print([x.fullname for x in ordered_mods])
 
 		for mod in ordered_mods:
+			mod.update_hashes()
 			mod.install(check=True)
 			if mod.installed:
 				self.installed[mod.fullname] = mod

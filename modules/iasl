@@ -1,14 +1,20 @@
 # this is a host_cc, not a cross compiled program
+# it only uses crossgcc to get the version number to report
+# to coreboot that queries it.
 
 worldbuilder.Submodule("iasl",
-	depends = [ "crossgcc" ],
+	depends = [ "crossgcc_src" ],
 	version = "20210331",
 	url = "https://acpica.org/sites/acpica/files/acpica-unix2-%(version)s.tar.gz",
 	tarhash = "3dab326c262d4f3eaf380bbbbd7aa8c2eb5f2697f7821659222cf898d8be28c1",
 	dirty = True, # writes into a ./obj directory
 	patches = [ "patches/acpica-unix2-%(version)s_iasl.patch" ],
 	make = [ "make",
-		"OPT_CFLAGS=-O -D_FORTIFY_SOURCE=2 -D COREBOOT_TOOLCHAIN_VERSION='\"coreboot toolchain v%(crossgcc.version)s\"'",
+		"OPT_CFLAGS=-O -D_FORTIFY_SOURCE=2 -D COREBOOT_TOOLCHAIN_VERSION='\"coreboot toolchain v%(crossgcc_src.version)s\"'",
 	],
-	install_dir = 'generate/unix', # hardcoded
+
+	install = [
+		"make", "DESTDIR=%(install_dir)s", "install",
+		#"cp", "generate/unix/bin/iasl", "%(install_dir)s",
+	],
 )

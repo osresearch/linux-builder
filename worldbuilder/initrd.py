@@ -28,7 +28,6 @@ class Initrd(Submodule):
 		self.files = files or []
 		self.symlinks = symlinks or []
 		self.devices = devices or []
-		self._install_dir = ""
 		self.add_hashes = add_hashes
 
 		# make sure that we depend on any files that we bring in
@@ -47,9 +46,12 @@ class Initrd(Submodule):
 	def patched(self, check=False):
 		self.patched = True
 		return self
-	def configure(self, check=False):
-		# update our output hash based on our dependencies and our files
+
+	def compute_src_hash(self):
 		self.src_hash = sha256hex((self.filename + "-" + self.version).encode('utf-8'))
+
+	def compute_out_hash(self, config_file_hash = zero_hash):
+		# update our output hash based on our dependencies and our files
 		dirs_hash = extend(zero_hash, self.dirs)
 
 		files_hash = zero_hash
@@ -65,13 +67,10 @@ class Initrd(Submodule):
 			s = [ device[0], device[1], str(device[2]), str(device[3]) ]
 			devices_hash = extend(devices_hash, s)
 
-		self.src_hash = extend(self.src_hash, [dirs_hash, files_hash, symlink_hash, devices_hash])
+		config_file_hash = extend(config_file_hash,[dirs_hash, files_hash, symlink_hash, devices_hash])
 
 		# update our output hash and all of our state variables
-		self.update_hashes(zero_hash)
-		self.configured = True
-
-		return self
+		return super().compute_out_hash(config_file_hash)
 
 	def add_file(self, dir_name, encoded_name, dep=None):
 		if not dep:

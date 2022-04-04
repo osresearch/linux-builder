@@ -140,7 +140,9 @@ def Linux(
 			"KBUILD_BUILD_VERSION=%("+linux_name+".src_hash)s",
 			*cross_tools_if_cross,
 		],
-		install_dir = "arch/x86/boot",
+		install = [
+			"cp", "arch/x86/boot/bzImage", "%(bin_dir)s",
+		],
 		bin_dir = '',
 		bins = [ 'bzImage' ],
 		report_hashes = True,

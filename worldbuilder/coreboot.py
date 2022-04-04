@@ -153,10 +153,10 @@ def Coreboot(
 		])],
 
 		install = [
-			"mv", "%(bin_dir)s/"+name+"/coreboot.rom", "%(install_dir)s/coreboot-"+name+".rom",
+			"cp", name+"/coreboot.rom", "%(bin_dir)s/coreboot-"+name+".rom",
 		],
 
-		install_dir = '',
+		#install_dir = '',
 		bin_dir = '',
 
 		bins = [ "coreboot-"+ name + ".rom" ],
