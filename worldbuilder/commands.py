@@ -19,7 +19,7 @@ prefix_map = "-gno-record-gcc-switches" \
 	+ " -Wl,--build-id=none" \
 	+ " -ffile-prefix-map=%(top_dir)s/out=/build" \
 	+ " -ffile-prefix-map=%(top_dir)s/src=/src" \
-	+ " -ffile-prefix-map=%(install_dir)s=/" \
+	+ " -ffile-prefix-map=%(top_dir)s/install=/" \
 
 #	+ " -ffile-prefix-map=%(src_dir)s=/src/%(name)s-%(version)s" \
 #	+ " -ffile-prefix-map=%(out_dir)s=/build" \
