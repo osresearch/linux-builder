@@ -50,11 +50,15 @@ class Builder:
 			else:
 				self.failed[mod.fullname] = mod
 				print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile), file=sys.stderr)
+				for line in readfile(mod.last_logfile).split(b'\n')[-20:-1]:
+					print(mod.fullname + ": " + line.decode('utf-8'), file=sys.stderr)
 
 		except Exception as e:
 			print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile), file=sys.stderr)
 			print(traceback.format_exc(), file=sys.stderr)
 			self.failed[mod.fullname] = mod
+			for line in readfile(mod.last_logfile).split(b'\n')[-20:-1]:
+				print(mod.fullname + ": " + line.decode('utf-8'), file=sys.stderr)
 
 		del self.building[mod.fullname]
 		#self.report()
