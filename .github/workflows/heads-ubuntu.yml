@@ -20,12 +20,8 @@ jobs:
         run: DEBIAN_FRONTEND=noninteractive apt install -y patch gcc g++ python3 python3-pip python3-requests git texinfo bzip2 xz-utils cmake bc lz4 libssl-dev flex bison m4 rsync wget
       - name: Fix old python
         run: pip3 install graphlib_backport
-      - name: Fetch cached compilers
-        run: wget https://v.st/~hudson/crossgcc-cache.tar.gz
-      - name: Unpack cached compilers
-        run: tar -zxvf crossgcc-cache.tar.gz
       - name: Build package
-        run: make -j8 heads
+        run: CACHE_SERVER=https://v.st/~hudson/cache make -j8 heads
 
       - name: Upload heads packages
         uses: actions/upload-artifact@v2
