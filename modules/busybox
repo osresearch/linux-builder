@@ -29,12 +29,9 @@ worldbuilder.Submodule("busybox",
 		busybox_cflags,
 	],
 	install = [
-		*commands.kbuild_make,
-		"V=1",
-		"install",
-		*cross_tools,
-		busybox_cflags,
+		[ "cp", "busybox", "%(install_dir)s" ],
 	],
+	bin_dir = '',
 
 	bins = [ "busybox" ],
 )

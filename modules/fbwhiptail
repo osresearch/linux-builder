@@ -21,7 +21,7 @@ worldbuilder.Submodule("fbwhiptail",
 	],
 
 	install = [
-		"cp", "%(bins)s", "%(install_dir)s",
+		"cp", "whiptail", "fbwhiptail", "%(install_dir)s",
 	],
 	bin_dir = "",
 	bins = [ "whiptail", "fbwhiptail" ],

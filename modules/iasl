@@ -14,7 +14,10 @@ worldbuilder.Submodule("iasl",
 	],
 
 	install = [
-		"make", "DESTDIR=%(install_dir)s", "install",
-		#"cp", "generate/unix/bin/iasl", "%(install_dir)s",
+		#"make", "DESTDIR=%(install_dir)s", "install",
+		[ "mkdir", "-p", "%(bin_dir)s" ],
+		[ "cp", "generate/unix/bin/iasl", "%(bin_dir)s/", ],
 	],
+
+	#bin_dir = "bin",
 )
