@@ -133,6 +133,7 @@ class Submodule:
 		self.lib_dir = None
 		self.inc_dir = None
 		self.top_dir = build_dir
+		self.last_logfile = "NONE"
 
 		self.fetched = False
 		self.unpacked = False
@@ -458,6 +459,7 @@ class Submodule:
 
 
 	def run_commands(self, logfile_name, command_list):
+		self.last_logfile = os.path.join(self.out_dir, logfile_name)
 		for commands in command_list:
 			cmds = []
 			for cmd in commands:
@@ -465,7 +467,7 @@ class Submodule:
 
 			system(*cmds,
 				cwd=self.out_dir,
-				log=os.path.join(self.out_dir, logfile_name),
+				log=self.last_logfile,
 			)
 
 	def configure(self, check=False):
@@ -501,7 +503,7 @@ class Submodule:
 		return self
 
 
-	def build_required(self, check, force, build_canary):
+	def build_required(self, force, build_canary):
 		# update our check time for GC of build trees
 		mkdir(self.out_dir)
 		writefile(os.path.join(self.out_dir, '.build-checked'), b'')
@@ -509,7 +511,7 @@ class Submodule:
 		# no canary? definitely have to rebuild
 		self.built = False
 		if not exists(build_canary) or force:
-			return not check
+			return True
 
 		# do a scan of the dependent files for timestamps relative to canary
 		canary_build_time = os.stat(build_canary).st_mtime
@@ -517,18 +519,17 @@ class Submodule:
 			real_filename = self.format(filename)
 			if not exists(real_filename):
 				#print(self.name + ": no " + real_filename)
-				return not check
+				return True
 			if os.stat(real_filename).st_mtime > canary_build_time:
 				#print(self.name + ": newer " + real_filename)
-				return not check
+				return True
 
 		# and check all of our dependencies
 		for dep in self.depends:
 			if not dep.installed:
-				return not check
+				return True
 
-		# we're probably ok; mark our status as built
-		self.built = True
+		# we're probably already built
 		return False
 
 	def build(self, force=False, check=False):
@@ -536,8 +537,12 @@ class Submodule:
 			return False
 
 		build_canary = os.path.join(self.out_dir, ".built-" + self.name)
-		if not self.build_required(check, force, build_canary):
+		if not self.build_required(force, build_canary):
+			# we're already done
+			self.built = True
 			return self
+		if check:
+			return False
 
 		if self.make_commands:
 			info("BUILD   " + self.fullname)
@@ -552,6 +557,7 @@ class Submodule:
 		cache_canary = os.path.join(self.install_dir, ".cache-" + self.name)
 		if exists(cache_canary) and not force:
 			# this is a cached build, do not attempt any further builds
+			print(self.name + ": cached build available " + self.install_dir)
 			self.installed = True
 			return self
 

@@ -43,7 +43,7 @@ def CorebootSrc(
 	src = Submodule(
 		"coreboot-" + version,
 		version = version,
-		depends = [ "gcc32", "iasl" ],
+		#depends = [ "gcc32", "iasl" ],
 		url = "https://www.coreboot.org/releases/coreboot-%(version)s.tar.xz",
 		tarhash = tarhash,
 		patches = patches,
@@ -123,6 +123,8 @@ def Coreboot(
 			kernel,
 			src,
 			"coreboot_blobs-" + coreboot_version,
+			"gcc32",
+			"iasl",
 		],
 		config_files = [ config ],
 		dep_files = [ initrd_file, kernel_file ],
@@ -137,12 +139,12 @@ def Coreboot(
 			'CONFIG_MAINBOARD_SMBIOS_PRODUCT_NAME="' + name + '"',
 		],
 
-		configure = [
+		configure = [ "bash", "-c", " ".join([
+			*make_env(extra_env),
 			"make",
 			"olddefconfig",
 			"-C%("+coreboot_name+".src_dir)s",
-			*extra_env,
-		],
+		])],
 
 		# work around a bug in make that doesn't pass command line vars in the environment
 		# which prevents the local iasl binary from being used by subshells

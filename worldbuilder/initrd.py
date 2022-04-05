@@ -125,8 +125,11 @@ class Initrd(Submodule):
 			return False
 
 		build_canary = os.path.join(self.out_dir, ".build-" + self.name)
-		if not self.build_required(check, force, build_canary):
+		if not self.build_required(force, build_canary):
+			self.built = True
 			return self
+		if check:
+			return False
 
 		self.cpio = cpiofile.CPIO()
 

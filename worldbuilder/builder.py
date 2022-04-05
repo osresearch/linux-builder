@@ -49,10 +49,10 @@ class Builder:
 				print(now(), "DONE    " + mod.fullname + " (%d seconds)" % (time.time() - start_time))
 			else:
 				self.failed[mod.fullname] = mod
-				print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
+				print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile), file=sys.stderr)
 
 		except Exception as e:
-			print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.out_dir), file=sys.stderr)
+			print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile), file=sys.stderr)
 			print(traceback.format_exc(), file=sys.stderr)
 			self.failed[mod.fullname] = mod
 
