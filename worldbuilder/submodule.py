@@ -241,7 +241,7 @@ class Submodule:
 			return self
 
 		if check:
-			return self
+			return False
 
 		# make sure we have a place to put it
 		mkdir(ftp_dir)
@@ -273,7 +273,7 @@ class Submodule:
 			self.unpacked = True
 			return self
 
-		if not self.fetch():
+		if not self.fetch(check=check):
 			return False
 
 		# if the name includes its own version, don't double append it
