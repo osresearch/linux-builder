@@ -20,7 +20,7 @@ from worldbuilder.linux import LinuxSrc, Linux
 from worldbuilder.coreboot import CorebootSrc, Coreboot
 
 # cache server can be passed in the environment
-worldbuilder.Submodule.cache_server = os.getenv("CACHE_SERVER", None)
+worldbuilder.submodule.cache_server = os.getenv("CACHE_SERVER", None)
 
 for modname in sorted(glob.glob("modules/*")):
 	try:

@@ -571,7 +571,9 @@ class Submodule:
 		if r.status_code != requests.codes.ok:
 			return False
 
-		mkdir(self.cache_dir)
+		mkdir(cache_dir)
+		mkdir(self.install_dir)
+
 		info("CACHED  " + self.fullname + ": " + url)
 		writefile(tar_filename, r.content)
 		system("tar", "-zxf", tar_filename, "-C", self.install_dir)
