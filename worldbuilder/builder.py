@@ -89,10 +89,10 @@ class Builder:
 			for dep in mod.depends:
 				self.mods.append(dep)
 
-		ordered_mods = [*ts.static_order()]
-		print([x.fullname for x in ordered_mods])
+		self.ordered_mods = [*ts.static_order()]
+		print([x.fullname for x in self.ordered_mods])
 
-		for mod in ordered_mods:
+		for mod in self.ordered_mods:
 			mod.update_hashes()
 			mod.install(check=True)
 			if mod.installed:
@@ -142,7 +142,28 @@ class Builder:
 			# try again in a little while
 			sleep(0.1)
 
+	def cache_create(self, cache_dir):
+		self.check()
+		fail = False
 
+		for dep in self.ordered_mods:
+			if not dep.cacheable:
+				continue
+			if not dep.installed:
+				print(dep.fullname + ": not ready to build cache", file=sys.stderr)
+				fail = True
+				continue
+		if fail:
+			return False
+
+		mkdir(cache_dir)
+
+		for dep in self.ordered_mods:
+			if not dep.cacheable:
+				continue
+			dep.cache_create(cache_dir)
+
+		
 
 if __name__ == "__main__":
 	pass

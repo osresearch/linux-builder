@@ -19,8 +19,8 @@ from worldbuilder import crosscompile
 from worldbuilder.linux import LinuxSrc, Linux
 from worldbuilder.coreboot import CorebootSrc, Coreboot
 
-board = 'qemu'
-kernel = 'virtio'
+# cache server can be passed in the environment
+worldbuilder.Submodule.cache_server = os.getenv("CACHE_SERVER", None)
 
 for modname in sorted(glob.glob("modules/*")):
 	try:
@@ -119,14 +119,14 @@ x230_firmware = Heads(
 	],
 )
 
+builder = worldbuilder.Builder([ qemu_firmware, x230_firmware ])
+
 if len(sys.argv) > 1:
-	deps = sys.argv[1:]
-else:
-	deps = [ qemu_firmware, x230_firmware ]
+	if sys.argv[1] == "cache":
+		exit(builder.cache_create("build/cache"))
+	elif sys.argv[1] == "check":
+		exit(builder.check())
+	builder.mods = sys.argv[1:]
 
-
-build = worldbuilder.Builder(deps)
-
-#build.check()
-if not build.build_all():
+if not builder.build_all():
 	exit(-1)

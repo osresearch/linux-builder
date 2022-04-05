@@ -37,7 +37,9 @@ build_dir = 'build'
 ftp_dir = os.path.join(build_dir, 'ftp')
 src_dir = os.path.join(build_dir, 'src')
 out_dir = os.path.join(build_dir, 'out')
+cache_dir = os.path.join(build_dir, 'cache')
 install_dir = os.path.join(build_dir, 'install')
+cache_server = None
 
 # global list of modules; names must be unique
 global_mods = {}
@@ -553,6 +555,29 @@ class Submodule:
 
 		return self
 
+	def cache_create(self, cache_dir):
+		mkdir(cache_dir)
+		cache_filename = self.fullname + "-" + self.out_hash[0:16] + ".tar.gz"
+		tar_filename = os.path.join(cache_dir, cache_filename)
+		info("CACHE   " + self.fullname + ": " + relative(tar_filename))
+		system("tar", "-zcf", tar_filename, "-C", self.install_dir, ".")
+		return True
+
+	def cache_fetch(self):
+		cache_filename = self.fullname + "-" + self.out_hash[0:16] + ".tar.gz"
+		tar_filename = os.path.join(cache_dir, cache_filename)
+		url = cache_server + "/" + cache_filename
+		r = requests.get(url)
+		if r.status_code != requests.codes.ok:
+			return False
+
+		mkdir(self.cache_dir)
+		info("CACHED  " + self.fullname + ": " + url)
+		writefile(tar_filename, r.content)
+		system("tar", "-zxf", tar_filename, "-C", self.install_dir)
+
+		return True
+
 	def install(self, force=False, check=False):
 		cache_canary = os.path.join(self.install_dir, ".cache-" + self.name)
 		if exists(cache_canary) and not force:
@@ -560,6 +585,12 @@ class Submodule:
 			print(self.name + ": cached build available " + self.install_dir)
 			self.installed = True
 			return self
+
+		# if we're actually building and cacheable, try to see if the
+		# cache server has a cached version for us
+		if self.cacheable and cache_server and not check:
+			if self.cache_fetch() and exists(cache_canary):
+				return True
 
 		if not self.build(force=force, check=check):
 			return False
