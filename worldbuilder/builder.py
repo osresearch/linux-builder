@@ -38,6 +38,7 @@ class Builder:
 		del self.waiting[mod.fullname]
 		self.building[mod.fullname] = mod
 		#self.report()
+		failed = False
 
 		try:
 			start_time = time.time()
@@ -48,17 +49,18 @@ class Builder:
 				self.installed[mod.fullname] = mod
 				print(now(), "DONE    " + mod.fullname + " (%d seconds)" % (time.time() - start_time))
 			else:
-				self.failed[mod.fullname] = mod
-				print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile), file=sys.stderr)
-				for line in readfile(mod.last_logfile).split(b'\n')[-20:-1]:
-					print(mod.fullname + ": " + line.decode('utf-8'), file=sys.stderr)
+				failed = True
 
 		except Exception as e:
-			print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile), file=sys.stderr)
-			print(traceback.format_exc(), file=sys.stderr)
+			print(traceback.format_exc()) #, file=sys.stderr)
+			failed = True
+
+		if failed:
 			self.failed[mod.fullname] = mod
+			print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile)) #, file=sys.stderr)
 			for line in readfile(mod.last_logfile).split(b'\n')[-20:-1]:
-				print(mod.fullname + ": " + line.decode('utf-8'), file=sys.stderr)
+				print(mod.fullname + ": " + line.decode('utf-8')) #, file=sys.stderr)
+			print(mod.fullname, mod.dict)
 
 		del self.building[mod.fullname]
 		#self.report()
