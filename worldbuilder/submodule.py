@@ -221,11 +221,11 @@ class Submodule:
 					continue
 				dep_key = dep.name + "." + key
 				if dep_key in self.dict:
-					if self.dict[dep_key] != dep.dict[key]:
-						print("------", self.fullname,": ",dep_key,"!=",self.dict[dep_key],dep.dict[key])
 					# this dependency has been processed
-					#return
-					#pass
+					# should we warn about a replacement key?
+					#if self.dict[dep_key] != dep.dict[key]:
+					#	print("------", self.fullname,": ",dep_key,"!=",self.dict[dep_key],dep.dict[key])
+					pass
 				self.dict[dep_key] = dep.dict[key]
 			# add of of this dependency's dependencies
 			if not self.update_dep_dict(dep.depends):
@@ -363,14 +363,10 @@ class Submodule:
 		else:
 			src_subdir = self.name + "-" + self.version
 
-		if self.dirty:
-			# the src_subdir is based on the output hash,
-			# not the src hash, since it writes to the
-			# directory.
-			src_subdir = os.path.join(src_subdir, self.out_hash[0:16])
-			self.src_dir = os.path.abspath(os.path.join(out_dir, src_subdir))
-		else:
+		if not self.dirty:
 			# unpack the clean source in its own directory
+			# for dirty ones the src_dir will be updated based on the
+			# output hash, computed later
 			src_subdir = os.path.join(src_subdir, self.src_hash[0:16])
 			self.src_dir = os.path.abspath(os.path.join(src_dir, src_subdir))
 
@@ -465,6 +461,11 @@ class Submodule:
 		self.lib_dir = os.path.join(self.install_dir, self._lib_dir)
 		self.inc_dir = os.path.join(self.install_dir, self._inc_dir)
 		self.top_dir = os.path.abspath(build_dir)
+
+		if self.dirty:
+			# the src_subdir is based on the output hash,
+			# not the src hash, since it writes to the directory.
+			self.src_dir = self.out_dir
 
 		self.update_dict()
 
