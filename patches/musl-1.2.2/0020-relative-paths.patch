@@ -1,0 +1,43 @@
+diff --recursive -u ../../clean/musl-1.2.2/Makefile 9b969322012d796d/Makefile
+--- ../../clean/musl-1.2.2/Makefile	2021-01-15 02:26:00.000000000 +0000
++++ 9b969322012d796d/Makefile	2022-04-06 08:59:03.691511448 +0000
+@@ -181,7 +181,7 @@
+ 	sh $< "$(includedir)" "$(libdir)" "$(LDSO_PATHNAME)" > $@
+ 
+ obj/musl-gcc: config.mak
+-	printf '#!/bin/sh\nexec "$${REALGCC:-$(WRAPCC_GCC)}" "$$@" -specs "%s/musl-gcc.specs"\n' "$(libdir)" > $@
++	printf '#!/bin/sh\nMUSL_TOP="`dirname "$$0"`/.." ; export MUSL_TOP\nexec "$${REALGCC:-$(WRAPCC_GCC)}" "$$@" -specs "$$MUSL_TOP%s/musl-gcc.specs"\n' "$(libdir)" > $@
+ 	chmod +x $@
+ 
+ obj/%-clang: $(srcdir)/tools/%-clang.in config.mak
+diff --recursive -u ../../clean/musl-1.2.2/tools/musl-gcc.specs.sh 9b969322012d796d/tools/musl-gcc.specs.sh
+--- ../../clean/musl-1.2.2/tools/musl-gcc.specs.sh	2021-01-15 02:26:00.000000000 +0000
++++ 9b969322012d796d/tools/musl-gcc.specs.sh	2022-04-06 09:01:25.790800915 +0000
+@@ -5,22 +5,22 @@
+ %rename cpp_options old_cpp_options
+ 
+ *cpp_options:
+--nostdinc -isystem $incdir -isystem include%s %(old_cpp_options)
++-nostdinc -isystem %:getenv(MUSL_TOP $incdir) -isystem include%s %(old_cpp_options)
+ 
+ *cc1:
+-%(cc1_cpu) -nostdinc -isystem $incdir -isystem include%s
++%(cc1_cpu) -nostdinc -isystem %:getenv(MUSL_TOP $incdir) -isystem include%s
+ 
+ *link_libgcc:
+--L$libdir -L .%s
++-L%:getenv(MUSL_TOP $libdir) -L .%s
+ 
+ *libgcc:
+ libgcc.a%s %:if-exists(libgcc_eh.a%s)
+ 
+ *startfile:
+-%{!shared: $libdir/Scrt1.o} $libdir/crti.o crtbeginS.o%s
++%{!shared: %:getenv(MUSL_TOP $libdir/Scrt1.o)} %:getenv(MUSL_TOP $libdir/crti.o) crtbeginS.o%s
+ 
+ *endfile:
+-crtendS.o%s $libdir/crtn.o
++crtendS.o%s %:getenv(MUSL_TOP $libdir/crtn.o)
+ 
+ *link:
+ -dynamic-linker $ldso -nostdlib %{shared:-shared} %{static:-static} %{rdynamic:-export-dynamic}

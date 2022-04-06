@@ -13,13 +13,17 @@ gmp = worldbuilder.Submodule("gmp",
 	cacheable = True,
 	configure = [
 		commands.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--enable-static=yes",
 		"--enable-shared=no",
 		"PKG_CONFIG=/bin/false",
+		"CFLAGS=" + commands.prefix_map,
 	],
 	make = [ "make" ],
-	install = [ "make", "install" ],
+	install = [
+		[ "make", "install", "DESTDIR=%(install_dir)s", ],
+		commands.delete_la,
+	],
 )
 
 mpfr = worldbuilder.Submodule("mpfr",
@@ -30,13 +34,17 @@ mpfr = worldbuilder.Submodule("mpfr",
 	cacheable = True,
 	configure = [
 		commands.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--enable-static=yes",
 		"--enable-shared=no",
 		"--with-gmp=%(gmp.install_dir)s",
 		"PKG_CONFIG=/bin/false",
+		"CFLAGS=" + commands.prefix_map,
 	],
-	make = [ "make", "install" ],
+	install = [
+		[ "make", "install", "DESTDIR=%(install_dir)s", ],
+		commands.delete_la,
+	],
 )
 
 mpc = worldbuilder.Submodule("mpc",
@@ -47,19 +55,22 @@ mpc = worldbuilder.Submodule("mpc",
 	cacheable = True,
 	configure = [
 		commands.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--with-mpfr=%(mpfr.install_dir)s",
 		"--with-gmp=%(gmp.install_dir)s",
 		"--enable-static=yes",
 		"--enable-shared=no",
 		"PKG_CONFIG=/bin/false",
+		"CFLAGS=" + commands.prefix_map,
 	],
 	make = [ "make" ],
-	install = [ "make", "install" ],
+	install = [
+		[ "make", "install", "DESTDIR=%(install_dir)s", ],
+		commands.delete_la,
+	],
 )
 
 binutils_src = worldbuilder.Submodule("binutils_src",
-	depends = [ mpc ],
 	version = "2.38",
 	cacheable = True,
 	url = "https://ftp.gnu.org/gnu/binutils/binutils-%(version)s.tar.xz",
@@ -67,35 +78,37 @@ binutils_src = worldbuilder.Submodule("binutils_src",
 )
 
 binutils = worldbuilder.Submodule("binutils",
-	depends = [ binutils_src ],
+	depends = [ mpc, binutils_src ],
 	version = binutils_src.version,
 	cacheable = True,
 	configure = [
 		"%(binutils_src.src_dir)s/configure",
 		"--target=" + target_arch,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--with-mpc=%(mpc.install_dir)s",
 		"--disable-nls",
 		"PKG_CONFIG=/bin/false",
+		"CFLAGS=" + commands.prefix_map,
 	],
 	make = [ "make" ],
-	install = [ "make", "install" ],
+	install = [ "make", "install", "DESTDIR=%(install_dir)s", ],
 )
 
 binutils32 = worldbuilder.Submodule("binutils32",
-	depends = [ binutils_src ],
+	depends = [ mpc, binutils_src ],
 	version = binutils_src.version,
 	cacheable = True,
 	configure = [
 		"%(binutils_src.src_dir)s/configure",
 		"--target=" + target_arch32,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"--with-mpc=%(mpc.install_dir)s",
 		"--disable-nls",
 		"PKG_CONFIG=/bin/false",
+		"CFLAGS=" + commands.prefix_map,
 	],
 	make = [ "make" ],
-	install = [ "make", "install" ],
+	install = [ "make", "install", "DESTDIR=%(install_dir)s", ],
 )
 
 bison = worldbuilder.Submodule("bison",
@@ -104,11 +117,12 @@ bison = worldbuilder.Submodule("bison",
 	tarhash = '9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2',
 	configure = [
 		commands.configure_cmd,
-		"--prefix=%(install_dir)s",
+		"--prefix=/",
 		"PKG_CONFIG=/bin/false",
+		"CFLAGS=" + commands.prefix_map,
 	],
 	make = [ "make" ],
-	install = [ "make", "install" ],
+	install = [ "make", "install", "DESTDIR=%(install_dir)s", ],
 )
 
 cross = "%(binutils.install_dir)s/bin/" + target_arch + "-"
@@ -145,7 +159,6 @@ gcc_version = "11.2.0"
 
 # this fakes the install into the binutils directory to avoid issues later
 crossgcc_src = worldbuilder.Submodule("crossgcc_src",
-	depends = [ mpc, mpfr, gmp ],
 	url = "https://ftp.gnu.org/gnu/gcc/gcc-%(version)s/gcc-%(version)s.tar.xz",
 	cacheable = True,
 	#version = "9.4.0",
@@ -177,51 +190,50 @@ crossgcc_configure_cmds = [
 
 crossgcc = worldbuilder.Submodule("crossgcc",
 	version = crossgcc_src.version,
-	depends = [ crossgcc_src, binutils ],
+	depends = [ binutils, mpc, mpfr, gmp, crossgcc_src, ],
 	cacheable = True,
 	configure = [
 		*crossgcc_configure_cmds,
 		"--target", target_arch,
-		"--prefix=%(binutils.install_dir)s", # note output!
+		"--prefix=/",
 		"--with-build-time-tools=%(binutils.install_dir)s/bin",
 		*gcc_cross_tools,
 		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make", "all-gcc" ],
-	install = [ "make", "install-gcc" ],
+	install = [ "make", "install-gcc", "DESTDIR=%(binutils.install_dir)s", ],
 )
 
 crossgcc32 = worldbuilder.Submodule("crossgcc32",
 	version = crossgcc_src.version,
-	depends = [ crossgcc_src, binutils32 ],
+	depends = [ binutils32, mpc, mpfr, gmp, crossgcc_src, ],
 	cacheable = True,
 	configure = [
 		*crossgcc_configure_cmds,
 		"--target=" + target_arch32,
-		"--prefix=%(binutils32.install_dir)s", # note output!
+		"--prefix=/",
 		"--with-build-time-tools=%(binutils32.install_dir)s/bin",
 		*gcc_cross32_tools,
 		"PKG_CONFIG=/bin/false",
 	],
 	make = [ "make", "all-gcc" ],
-	install = [ "make", "install-gcc" ],
+	install = [ "make", "install-gcc", "DESTDIR=%(binutils32.install_dir)s", ],
 )
 
 musl_src = worldbuilder.Submodule("musl_src",
 	version = "1.2.2",
 	url = "https://musl.libc.org/releases/musl-%(version)s.tar.gz",
 	tarhash = '9b969322012d796dc23dda27a35866034fa67d8fb67e0e2c45c913c3d43219dd',
-	patches = [ "patches/musl-0000-fastmath.patch" ],
+	patches = [ "patches/musl-%(version)s/*.patch" ],
 
 	# source only; don't build anything
 )
 
 musl_configure_cmds = [
 	"%(musl_src.src_dir)s/configure",
-	"--prefix=%(install_dir)s",
-	"--syslibdir=%(install_dir)s/lib",
+	"--prefix=/",
+	"--syslibdir=/lib",
 	"--enable-wrapper=gcc",
-	"DESTDIR=%(install_dir)s",
 ]
 
 musl = worldbuilder.Submodule("musl",
@@ -241,10 +253,12 @@ musl = worldbuilder.Submodule("musl",
 	make = [
 		"make",
 		"LDSO_PATHNAME=/lib/ld-musl-x86_64.so.1",
+		"WRAPCC_GCC=$$MUSL_TOP/../../binutils-%(binutils.version)s/%(binutils.out_hash)s/bin/"+target_arch+"-gcc",
 	],
 	install = [
 		"make",
 		"install",
+		"DESTDIR=%(install_dir)s",
 	],
 
 	libs = [ "libc.so" ],
@@ -268,10 +282,12 @@ musl32 = worldbuilder.Submodule("musl32",
 	make = [
 		"make",
 		"LDSO_PATHNAME=/lib/ld-musl-i386.so.1",
+		"WRAPCC_GCC=$$MUSL_TOP/../../%(binutils32.fullname)s/%(binutils32.out_hash)s/bin/"+target_arch32+"-gcc",
 	],
 	install = [
 		"make",
 		"install",
+		"DESTDIR=%(install_dir)s",
 	],
 
 	libs = [ "libc.so" ],
@@ -290,6 +306,7 @@ gcc = worldbuilder.Submodule("gcc",
 		"make",
 		"-C", "%(crossgcc.out_dir)s",
 		"all-target-libgcc",
+		"CFLAGS=" + commands.prefix_map,
 		"CFLAGS_FOR_TARGET="
 			+ "-I%(musl.install_dir)s/include "
 			+ "-B%(musl.install_dir)s/lib "
@@ -301,6 +318,7 @@ gcc = worldbuilder.Submodule("gcc",
 		"make",
 		"-C", "%(crossgcc.out_dir)s",
 		"install-target-libgcc",
+		"DESTDIR=%(binutils.install_dir)s",
 	],
 )
 
@@ -312,6 +330,7 @@ gcc32 = worldbuilder.Submodule("gcc32",
 		"make",
 		"-C", "%(crossgcc32.out_dir)s",
 		"all-target-libgcc",
+		"CFLAGS=" + commands.prefix_map,
 		"CFLAGS_FOR_TARGET="
 			+ "-I%(musl32.install_dir)s/include "
 			+ "-B%(musl32.install_dir)s/lib "
@@ -323,6 +342,7 @@ gcc32 = worldbuilder.Submodule("gcc32",
 		"make",
 		"-C", "%(crossgcc32.out_dir)s",
 		"install-target-libgcc",
+		"DESTDIR=%(binutils32.install_dir)s",
 	],
 )
 
