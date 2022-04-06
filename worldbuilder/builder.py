@@ -60,7 +60,7 @@ class Builder:
 			print(now(), "FAILED! " + mod.fullname + ": logs are in " + relative(mod.last_logfile)) #, file=sys.stderr)
 			for line in readfile(mod.last_logfile).split(b'\n')[-20:-1]:
 				print(mod.fullname + ": " + line.decode('utf-8')) #, file=sys.stderr)
-			print(mod.fullname, mod.dict)
+			#print(mod.fullname, mod.dict)
 
 		del self.building[mod.fullname]
 		#self.report()
