@@ -145,13 +145,16 @@ class Submodule:
 		self.installed = False
 		self.building = False
 
+		self.ready = False
 
 #		if patch_dir is not None:
 #			self.patch_files = glob(
 
-		self.update_dict()
+#		self.update_dict()
 
 	def state(self):
+		if not self.ready:
+			return "NOT READY"
 		if self.installed:
 			return "INSTALLED"
 		if self.built:
@@ -185,6 +188,7 @@ class Submodule:
 		self.dict = {
 			"version": self.version,
 			"name": self.name,
+			"fullname": self.fullname,
 			"major": self.major,
 			"minor": self.minor,
 			"patch": self.patchver,
@@ -201,25 +205,33 @@ class Submodule:
 			"top_dir": self.top_dir,
 		}
 
-		self.update_dep_dict(self.depends)
+		return self.update_dep_dict(self.depends)
 
 	# recursively add the dependency keys
 	def update_dep_dict(self,deps):
+		ready = True
 		for dep in deps:
 			if type(dep) is str:
 				# defer this one until later
+				#print("!!!!!!", self.fullname, "dep ", dep, "not ready")
+				ready = False
 				continue
 			for key in dep.dict:
 				if key.count('.') != 0:
 					continue
 				dep_key = dep.name + "." + key
 				if dep_key in self.dict:
+					if self.dict[dep_key] != dep.dict[key]:
+						print("------", self.fullname,": ",dep_key,"!=",self.dict[dep_key],dep.dict[key])
 					# this dependency has been processed
 					#return
-					pass
+					#pass
 				self.dict[dep_key] = dep.dict[key]
 			# add of of this dependency's dependencies
-			self.update_dep_dict(dep.depends)
+			if not self.update_dep_dict(dep.depends):
+				ready = False
+
+		return ready
 
 	def get_url(self):
 		url = self.format(self.url)
@@ -227,7 +239,6 @@ class Submodule:
 		return (base+"/" + f, f)
 
 	def fetch(self, force=False, check=False):
-		self.update_dict()
 		if not self.url:
 			# this is a fake package with no source
 			self.fetched = True
@@ -275,24 +286,6 @@ class Submodule:
 
 		if not self.fetch(check=check):
 			return False
-
-		# if the name includes its own version, don't double append it
-		if self.name.endswith(self.version):
-			src_subdir = self.name
-		else:
-			src_subdir = self.name + "-" + self.version
-
-		if self.dirty:
-			# the src_subdir is based on the output hash,
-			# not the src hash, since it writes to the
-			# directory.
-			src_subdir = os.path.join(src_subdir, self.out_hash[0:16])
-			self.src_dir = os.path.abspath(os.path.join(out_dir, src_subdir))
-		else:
-			# unpack the clean source in its own directory
-			src_subdir = os.path.join(src_subdir, self.src_hash[0:16])
-			self.src_dir = os.path.abspath(os.path.join(src_dir, src_subdir))
-		self.update_dict()
 
 		unpack_canary = os.path.join(self.src_dir, '.unpacked')
 		if exists(unpack_canary):
@@ -363,6 +356,26 @@ class Submodule:
 
 	def compute_src_hash(self):
 		self.src_hash = self.tarhash or zero_hash
+
+		# if the name includes its own version, don't double append it
+		if self.name.endswith(self.version):
+			src_subdir = self.name
+		else:
+			src_subdir = self.name + "-" + self.version
+
+		if self.dirty:
+			# the src_subdir is based on the output hash,
+			# not the src hash, since it writes to the
+			# directory.
+			src_subdir = os.path.join(src_subdir, self.out_hash[0:16])
+			self.src_dir = os.path.abspath(os.path.join(out_dir, src_subdir))
+		else:
+			# unpack the clean source in its own directory
+			src_subdir = os.path.join(src_subdir, self.src_hash[0:16])
+			self.src_dir = os.path.abspath(os.path.join(src_dir, src_subdir))
+
+		# setup some of our dictionary items
+		self.update_dict()
 
 		self.patches = []
 		for filename in self.patch_files:
@@ -584,7 +597,7 @@ class Submodule:
 		cache_canary = os.path.join(self.install_dir, ".cache-" + self.name)
 		if exists(cache_canary) and not force:
 			# this is a cached build, do not attempt any further builds
-			print(self.name + ": cached build available " + self.install_dir)
+			#print(self.name + ": cached build available " + self.install_dir)
 			self.installed = True
 			return self
 
@@ -631,3 +644,4 @@ class Submodule:
 	def update_hashes(self):
 		self.compute_src_hash()
 		self.compute_out_hash()
+		self.ready = True
