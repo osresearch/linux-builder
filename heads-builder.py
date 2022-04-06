@@ -121,6 +121,9 @@ x230_firmware = Heads(
 
 builder = worldbuilder.Builder([ qemu_firmware, x230_firmware ])
 
+if os.getenv("SINGLE_THREAD", None):
+	builder.single_thread = True
+
 if len(sys.argv) > 1:
 	if sys.argv[1] == "cache":
 		exit(builder.cache_create("build/cache"))

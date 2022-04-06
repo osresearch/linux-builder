@@ -8,6 +8,7 @@ class Builder:
 	def __init__(self, mods):
 		self.mods = mods
 		self.failed = False
+		self.single_thread = False
 		self.reset()
 
 	def reset(self):
@@ -129,6 +130,11 @@ class Builder:
 				sleep(1)
 				continue
 
+			if self.single_thread and len(self.building) != 0:
+				# let's wait for it to finish
+				sleep(0.1)
+				continue
+
 			for name in list(self.waiting):
 				mod = self.waiting[name]
 				ready = True
@@ -143,6 +149,7 @@ class Builder:
 				# it is time to build this mod!
 				mod.building = True
 				Thread(target = self._build_thread, args=(mod,)).start()
+				break
 
 			# processed the list of waiting ones sleep for a bit and
 			# try again in a little while
