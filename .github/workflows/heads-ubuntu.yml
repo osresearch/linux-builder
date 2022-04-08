@@ -21,7 +21,7 @@ jobs:
       - name: Fix cross compiler paths
         run: mkdir -p /root ; ln -s `pwd` /root/linux-builder
       - name: Build package
-        run: SINGLE_THREAD=1 CACHE_SERVER=https://v.st/~hudson/cache make -j2 heads
+        run: SINGLE_THREAD=1 CACHE_SERVER=https://v.st/~hudson/cache make -j3 heads
 
       - name: Upload heads packages
         uses: actions/upload-artifact@v2
