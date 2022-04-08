@@ -172,6 +172,7 @@ class Initrd(Submodule):
 
 		mkdir(self.install_dir)
 		initrd_file = os.path.join(self.install_dir, self.filename)
+
 		info("BUILD   " + self.name + ": " + relative(initrd_file))
 
 		is_compressed = self.filename.endswith('.xz')
@@ -181,5 +182,8 @@ class Initrd(Submodule):
 
 		writefile(build_canary, b'')
 		self.built = True
+
+		info("INSTALL  " + self.name + ": " + sha256hex(image))
+
 		return self
 
