@@ -3,6 +3,10 @@
 
 from worldbuilder.util import *
 from worldbuilder.submodule import global_mods # TODO remove this
+#from graphlib import TopologicalSorter  # requires python3.9
+from worldbuilder.graphlib_backport import TopologicalSorter # our own copy
+from threading import Thread
+from time import sleep
 
 class Builder:
 	def __init__(self, mods):
