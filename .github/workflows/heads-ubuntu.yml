@@ -17,7 +17,7 @@ jobs:
       - name: Update image
         run: apt update
       - name: Install dependencies
-        run: DEBIAN_FRONTEND=noninteractive apt install -y patch gcc g++ python3 python3-pip python3-requests git texinfo bzip2 xz-utils cmake bc lz4 libssl-dev flex bison m4 rsync wget
+        run: DEBIAN_FRONTEND=noninteractive apt install -y patch gcc g++ python3 python3-pip python3-requests git texinfo bzip2 xz-utils cmake bc lz4 libssl-dev flex bison m4 rsync wget libelf-dev
       - name: Fix cross compiler paths
         run: mkdir -p /root ; ln -s `pwd` /root/linux-builder
       - name: Build package
