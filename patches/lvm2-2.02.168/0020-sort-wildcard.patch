@@ -1,0 +1,181 @@
+Only in 23a3d1cddd41b3ef: .patched
+Only in 23a3d1cddd41b3ef: .unpacked
+diff -u --recursive ../../clean/LVM2.2.02.168/lib/mm/memlock.c 23a3d1cddd41b3ef/lib/mm/memlock.c
+--- ../../clean/LVM2.2.02.168/lib/mm/memlock.c	2016-11-30 23:17:29.000000000 +0000
++++ 23a3d1cddd41b3ef/lib/mm/memlock.c	2022-04-08 13:31:44.304786466 +0000
+@@ -150,6 +150,7 @@
+ 
+ static void _allocate_memory(void)
+ {
++#if 0
+ #ifndef VALGRIND_POOL
+ 	void *stack_mem;
+ 	struct rlimit limit;
+@@ -208,11 +209,14 @@
+ 	for (i = 0; i < area; ++i)
+ 		free(areas[i]);
+ #endif
++#endif
+ }
+ 
+ static void _release_memory(void)
+ {
++#if 0
+ 	free(_malloc_mem);
++#endif
+ }
+ 
+ /*
+@@ -288,7 +292,7 @@
+ 
+ 	if (lock == LVM_MLOCK) {
+ 		if (mlock((const void*)from, sz) < 0) {
+-			log_sys_error("mlock", line);
++			//log_sys_error("mlock", line);
+ 			return 0;
+ 		}
+ 	} else {
+diff -u --recursive ../../clean/LVM2.2.02.168/libdm/Makefile.in 23a3d1cddd41b3ef/libdm/Makefile.in
+--- ../../clean/LVM2.2.02.168/libdm/Makefile.in	2016-11-30 23:17:30.000000000 +0000
++++ 23a3d1cddd41b3ef/libdm/Makefile.in	2022-04-08 13:31:44.304786466 +0000
+@@ -56,7 +56,8 @@
+ 
+ CFLAGS += $(UDEV_CFLAGS) $(VALGRIND_CFLAGS)
+ 
+-LIBS += $(SELINUX_LIBS) $(UDEV_LIBS) $(PTHREAD_LIBS) $(M_LIBS)
++#LIBS += $(SELINUX_LIBS) $(UDEV_LIBS) $(PTHREAD_LIBS) $(M_LIBS)
++LIBS += $(SELINUX_LIBS) $(UDEV_LIBS)
+ 
+ device-mapper: all
+ 
+diff -u --recursive ../../clean/LVM2.2.02.168/libdm/libdm-stats.c 23a3d1cddd41b3ef/libdm/libdm-stats.c
+--- ../../clean/LVM2.2.02.168/libdm/libdm-stats.c	2016-11-30 23:17:30.000000000 +0000
++++ 23a3d1cddd41b3ef/libdm/libdm-stats.c	2022-04-08 13:31:44.304786466 +0000
+@@ -17,7 +17,24 @@
+ 
+ #include "dmlib.h"
+ 
++#if 0
+ #include "math.h" /* log10() */
++#else
++static int ilog10(double x)
++{
++	int e = 0;
++
++	while(x > 10)
++	{
++		e++;
++		x = x / 10;
++	}
++
++	return e;
++}
++#endif
++
++
+ 
+ #include <sys/sysmacros.h>
+ #include <sys/ioctl.h>
+@@ -502,7 +519,11 @@
+ 	while(entry >= bins) {
+ 		value = (double) (entry--)->upper;
+ 		/* Use lround to avoid size_t -> double cast warning. */
++#if 0
+ 		hist_len += 1 + (size_t) lround(log10(value / scale));
++#else
++		hist_len += 1 + ilog10(value / scale);
++#endif
+ 		if (entry != bins)
+ 			hist_len++; /* ',' */
+ 	}
+@@ -1746,7 +1767,11 @@
+ 		}
+ 
+ 		/* length of region_id or range start in characters */
++#if 0
+ 		id_len = (i) ? 1 + (size_t) log10(i) : 1;
++#else
++		id_len = (i) ? 1 + ilog10(i) : 1;
++#endif
+ 		buflen += id_len;
+ 		j = i;
+ 		do
+@@ -1761,7 +1786,11 @@
+ 		/* handle range */
+ 		if (i != j) {
+ 			/* j is always > i, which is always >= 0 */
++#if 0
+ 			id_len = 1 + (size_t) log10(j);
++#else
++			id_len = 1 + ilog10(j);
++#endif
+ 			buflen += id_len + 1; /* range end plus "-" */
+ 		}
+ 		buflen++;
+diff -u --recursive ../../clean/LVM2.2.02.168/make.tmpl.in 23a3d1cddd41b3ef/make.tmpl.in
+--- ../../clean/LVM2.2.02.168/make.tmpl.in	2016-11-30 23:17:30.000000000 +0000
++++ 23a3d1cddd41b3ef/make.tmpl.in	2022-04-08 18:34:46.622161263 +0000
+@@ -142,7 +142,7 @@
+ M_INSTALL_PROGRAM = -m 555
+ M_INSTALL_DATA = -m 444
+ endif
+-INSTALL_PROGRAM = $(INSTALL) $(M_INSTALL_PROGRAM) $(STRIP)
++INSTALL_PROGRAM = $(INSTALL) $(M_INSTALL_PROGRAM) $(STRIP_ARG)
+ INSTALL_DATA = $(INSTALL) -p $(M_INSTALL_DATA)
+ INSTALL_WDATA = $(INSTALL) -p -m 644
+ 
+@@ -260,8 +260,8 @@
+ #CFLAGS += -pg
+ #LDFLAGS += -pg
+ 
+-STRIP=
+-#STRIP = -s
++STRIP_ARG=
++#STRIP_ARG = -s
+ 
+ LVM_VERSION := $(shell cat $(top_srcdir)/VERSION)
+ 
+@@ -495,13 +495,13 @@
+ 	set -e; \
+ 	( cat $(srcdir)/.exported_symbols; \
+ 	  if test -n "$(EXPORTED_HEADER)"; then \
+-		$(CC) -E -P $(INCLUDES) $(DEFS) $(EXPORTED_HEADER) | \
++		$(CC) $(CFLAGS) -E -P $(INCLUDES) $(DEFS) $(EXPORTED_HEADER) | \
+ 		$(SED) -ne "/^typedef|}/!s/.*[ *]\($(EXPORTED_FN_PREFIX)_[a-z0-9_]*\)(.*/\1/p"; \
+ 	  fi \
+ 	) > $@
+ 
+ EXPORTED_UC := $(shell echo $(EXPORTED_FN_PREFIX) | tr '[a-z]' '[A-Z]')
+-EXPORTED_SYMBOLS := $(wildcard $(srcdir)/.exported_symbols.Base $(srcdir)/.exported_symbols.$(EXPORTED_UC)_[0-9_]*[0-9])
++EXPORTED_SYMBOLS := $(sort $(wildcard $(srcdir)/.exported_symbols.Base $(srcdir)/.exported_symbols.$(EXPORTED_UC)_[0-9_]*[0-9]))
+ 
+ .export.sym: .exported_symbols_generated $(EXPORTED_SYMBOLS)
+ ifeq (,$(firstword $(EXPORTED_SYMBOLS)))
+diff -u --recursive ../../clean/LVM2.2.02.168/tools/lvmcmdline.c 23a3d1cddd41b3ef/tools/lvmcmdline.c
+--- ../../clean/LVM2.2.02.168/tools/lvmcmdline.c	2016-11-30 23:17:32.000000000 +0000
++++ 23a3d1cddd41b3ef/tools/lvmcmdline.c	2022-04-08 13:31:44.304786466 +0000
+@@ -1817,6 +1817,7 @@
+ {
+ 	int err = is_valid_fd(STDERR_FILENO);
+ 
++#if 0
+ 	if (!is_valid_fd(STDIN_FILENO) &&
+ 	    !(stdin = fopen(_PATH_DEVNULL, "r"))) {
+ 		if (err)
+@@ -1841,6 +1842,7 @@
+ 		       strerror(errno));
+ 		return 0;
+ 	}
++#endif
+ 
+ 	return 1;
+ }
+@@ -2023,7 +2025,7 @@
+ 	 */
+ 	dm_set_name_mangling_mode(DM_STRING_MANGLING_NONE);
+ 
+-	if (!(cmd = create_toolcontext(0, NULL, 1, 0,
++	if (!(cmd = create_toolcontext(0, NULL, 0, 0,
+ 			set_connections, set_filters))) {
+ 		udev_fin_library_context();
+ 		return_NULL;
