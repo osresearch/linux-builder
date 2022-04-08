@@ -56,6 +56,7 @@ def die(*s):
 def info(*s):
 	if verbose > 0:
 		print(now(), *s)
+		sys.stdout.flush()
 
 def exists(*paths):
 	try:
