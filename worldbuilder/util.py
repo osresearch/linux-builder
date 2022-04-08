@@ -6,11 +6,6 @@ import hashlib
 import subprocess
 import traceback
 import time
-from tempfile import NamedTemporaryFile
-from threading import Thread
-from time import sleep, asctime
-from graphlib import TopologicalSorter  # requires python3.9
-from glob import glob
 from shlex import quote
 
 def now():
