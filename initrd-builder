@@ -7,6 +7,7 @@ import os
 import cpiofile
 import traceback
 import argparse
+import subprocess
 
 bindir = "bin"
 libdir = "lib64"
@@ -17,15 +18,22 @@ depsfile = None
 deps = ()
 cpio = cpiofile.CPIO()
 
+def system(*s):
+	# do not close file descriptors, which will allow
+	# communication from sub-make invocations to the make
+	# that invoked us.  allow failures
+	return subprocess.run(s, close_fds=False, capture_output=True)
+
 def die(s):
 	print(s, file=sys.stderr)
 	exit(1)
 
-def mode(filename):
+def filemode(filename):
 	try:
 		s = os.stat(filename)
-		return s.mode
+		return s.st_mode
 	except Exception as e:
+		print(e, file=sys.stderr)
 		return None
 def exists(f):
 	try:
@@ -117,7 +125,7 @@ def process_line(line):
 			for f in files:
 				oldname = os.path.join(root, f)
 				newname = os.path.join(newroot, f)
-				cpio.add(newname, readfile(oldname))
+				cpio.add(newname, data=readfile(oldname))
 				deps_add(oldname)
 
 		# ldd is *not* done on recursive directories
@@ -126,7 +134,7 @@ def process_line(line):
 	# strip the local path
 	dest_filename = os.path.basename(filename)
 
-	cpio.add(dest + "/" + dest_filename, readfile(filename), mode(filename))
+	cpio.add(dest + "/" + dest_filename, data=readfile(filename), mode=filemode(filename))
 	deps_add(filename)
 
 	deps = system("ldd", filename)
@@ -146,7 +154,7 @@ def process_line(line):
 		
 		# strip the local path and put the library in the libdir
 		dest_lib = os.path.basename(lib)
-		cpio.add(libdir + "/" + dest_lib, readfile(lib))
+		cpio.add(libdir + "/" + dest_lib, data=readfile(lib))
 		deps_add(filename)
 
 parser = argparse.ArgumentParser()
