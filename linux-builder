@@ -11,8 +11,6 @@ from tempfile import NamedTemporaryFile
 verbose = 1
 
 def system(*s):
-	if verbose > 2:
-		print(s)
 	# do not close file descriptors, which will allow
 	# communication from sub-make invocations to the make
 	# that invoked us
@@ -22,6 +20,9 @@ def die(*s):
 	exit(1)
 def info(s):
 	if verbose > 0:
+		print(s, file=sys.stderr)
+def debug(s):
+	if verbose > 1:
 		print(s, file=sys.stderr)
 def exists(f):
 	try:
@@ -60,7 +61,7 @@ parser.add_argument('-V', '--version',
 	default='5.4.117',
 	help="Linux kernel version to build")
 parser.add_argument( '-v', '--verbose',
-	dest='verbose', action='count', default=1,
+	dest='verbose', action='count', default=0,
 	help="Verbose build")
 parser.add_argument( '-s', '--silent',
 	dest='verbose', action='store_const', const=0,
@@ -84,6 +85,10 @@ parser.add_argument( '-M', '--make',
 	dest='make', type=str,
 	default=make,
 	help="Override the $(MAKE) environment variable")
+parser.add_argument( '-j', '--jobs',
+	dest='make_jobs', type=int,
+	default=None,
+	help="Number of parallel make jobs to invoke")
 parser.add_argument( '-H', '--hostname',
 	dest='hostname', type=str,
 	default=None,
@@ -111,14 +116,18 @@ verbose = args.verbose
 config_file = args.config
 patch_file = args.patch
 output_dir = args.output
+make_jobs = args.make_jobs
 
 # split it into words following shell semantics
 make = shlex.split(make)
 
+# ensure that the config exists,
+# TODO: unless this is a menuconfig which might be creating from scratch
 if not exists(config_file):
 	die(config_file + ": config file does not exist?")
 
 # Read the base configuration (may be updated later)
+# TODO: handle non-existant file for menuconfig
 (config, config_hash) = readfile(config_file)
 
 major = version.split('.')[0]
@@ -204,6 +213,12 @@ if not exists(symlink_canary):
 	writefile(symlink_canary, b'')
 
 if args.menuconfig:
+	# just in case this is the very first time, allow an empty config file
+	# and pre-create the directory
+	if not os.path.exists(kconfig_file):
+		info("Creating build dir " + build_dir)
+		os.makedirs(build_dir, exist_ok=True)
+
 	# re-write the config with the unmodified version
 	writefile(kconfig_file, config)
 	system(*make,
@@ -260,6 +275,7 @@ if reconfig:
 	writefile(kconfig_file, config)
 	writefile(config_canary, config_hash.encode('utf-8'))
 	system(*make,
+		"-j1",
 		"-C", linux_dir,
 		"O=" + build_rdir,
 		"olddefconfig"
@@ -267,20 +283,24 @@ if reconfig:
 
 	
 # finally ready to build!
-verbose_str = "V=0"
-if verbose > 3:
-	verbose_str = "V=1"
-
-info(build_dir + ": starting build")
-system(*make,
+make_cmd = [ *make,
 	"KBUILD_HOST=builder",
 	"KBUILD_BUILD_USER=builder",
 	"KBUILD_BUILD_TIMESTAMP=" + config_hash,
 	"KBUILD_BUILD_VERSION=" + tag + patch_tag,
-	verbose_str,
 	"-C", linux_dir,
 	"O=" + build_rdir,
-)
+]
+
+if make_jobs:
+	make_cmd.append("-j" + str(make_jobs))
+if verbose > 3:
+	make_cmd.append("V=1")
+
+info(build_dir + ": starting build")
+debug(make_cmd)
+
+system(*make_cmd)
 
 (kernel, kernel_hash) = readfile(os.path.join(build_dir, "arch", "x86", "boot", "bzImage"))
 
