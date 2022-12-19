@@ -169,6 +169,10 @@ patch_canary = os.path.join(linux_dir, ".patched")
 symlink_canary = os.path.join(linux_dir, ".symlinks")
 config_canary = os.path.join(build_dir, ".configured")
 
+if not os.path.exists(build_dir):
+	info("Creating build dir " + build_dir)
+	os.makedirs(build_dir, exist_ok=True)
+
 if not exists(linux_tar):
 	info(linux_url + ": fetching")
 	system("wget", "-O", linux_tar, linux_url)
@@ -215,10 +219,6 @@ if not exists(symlink_canary):
 if args.menuconfig:
 	# just in case this is the very first time, allow an empty config file
 	# and pre-create the directory
-	if not os.path.exists(kconfig_file):
-		info("Creating build dir " + build_dir)
-		os.makedirs(build_dir, exist_ok=True)
-
 	# re-write the config with the unmodified version
 	writefile(kconfig_file, config)
 	system(*make,
