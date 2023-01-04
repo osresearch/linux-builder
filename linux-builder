@@ -132,6 +132,10 @@ parser.add_argument('--no-kernel',
 	dest='no_kernel', action='store_true',
 	default=False,
 	help="Do not try to extract the vmlinux")
+parser.add_argument('--targets',
+	dest='make_target', type=str,
+	default='',
+	help="Target for make to build")
 
 args = parser.parse_args()
 version = args.version
@@ -344,6 +348,7 @@ make_cmd = [ *make,
 	"KBUILD_BUILD_TIMESTAMP=" + config_hash,
 	"KBUILD_BUILD_VERSION=" + tag + patch_tag,
 	"-C", build_dir,
+	*shlex.split(args.make_target)
 	#"O=" + build_rdir,
 ]
 
