@@ -14,6 +14,7 @@ bindir = "bin"
 libdir = "lib64"
 verbose = False
 cwd = '.'
+no_strip = False
 
 depsfile = None
 deps = ()
@@ -72,6 +73,9 @@ def cpio_mkdirs(dest, mode = 0o777):
 
 ### try stripping executables and libraries before loading them
 def try_strip(filename):
+	if no_strip:
+		return readfile(filename)
+
 	try:
 		with NamedTemporaryFile() as tmp:
 			rc = system("strip", "-o", tmp.name, filename)
@@ -190,6 +194,9 @@ parser.add_argument('-r', '--relative',
 parser.add_argument('-M', '--deps',
 	dest='deps', type=str,
 	help="Output dependencies for Makefile rebuilds")
+parser.add_argument('--no-strip',
+	dest='no_strip', action='store_true',
+	help="Do not strip libraries and executables")
 parser.add_argument('--add',
 	dest='extra', type=str, action='append',
 	help="Extra binaries to be included")
@@ -197,6 +204,7 @@ parser.add_argument('--add',
 args = parser.parse_args()
 verbose = args.verbose
 initrd_filename = args.cpio
+no_strip = args.no_strip
 
 if args.deps:
 	depsfile = open(args.deps, "w")
