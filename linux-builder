@@ -169,9 +169,9 @@ if not exists(config_file):
 (config, config_hash) = readfile(config_file)
 
 major = version.split('.')[0]
-tag = args.tag
-if not tag:
-	tag = os.path.splitext(os.path.basename(config_file))[0]
+tag = ''
+if args.tag:
+	tag = "-" + args.tag
 patch_tag = ''
 patches = []
 if patch_files:
@@ -197,10 +197,14 @@ else:
 	linux_sig = linux_url_base + ".tar.sign"
 linux_tar = os.path.join(ftp_dir, prefix + version + ".tar.xz")
 linux_dir = os.path.join(src_dir, prefix + version + patch_tag)
-build_dir = os.path.join(output_dir, prefix + version + "-" + tag)
-build_rdir = os.path.join("..", "..", output_dir, prefix + version + "-" + tag)
+build_dir = os.path.join(output_dir, prefix + version + tag)
+
+abs_build = os.path.abspath(build_dir)
+abs_linux = os.path.abspath(linux_dir)
+build_rdir = os.path.relpath(abs_build, abs_linux)
+
 kconfig_file = os.path.join(build_dir, ".config")
-kernel_file = os.path.join(output_dir, "vmlinuz-" + tag)
+kernel_file = os.path.join(output_dir, "vmlinuz" + tag)
 
 if verbose > 1:
 	print("URL     = " + linux_url)
