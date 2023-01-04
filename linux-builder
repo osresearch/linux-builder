@@ -210,6 +210,7 @@ unpack_canary = os.path.join(linux_dir, ".unpacked")
 patch_canary = os.path.join(linux_dir, ".patched")
 symlink_canary = os.path.join(linux_dir, ".symlinks")
 config_canary = os.path.join(build_dir, ".configured")
+build_canary = os.path.join(build_dir, ".built")
 
 if not os.path.exists(build_dir):
 	info("Creating build dir " + build_dir)
@@ -361,6 +362,8 @@ info(build_dir + ": starting build")
 debug(make_cmd)
 
 system(*make_cmd)
+
+writefile(build_canary, b'')
 
 if args.no_kernel:
 	sys.exit(0)
