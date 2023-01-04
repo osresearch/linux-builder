@@ -52,9 +52,17 @@ if not make:
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-O', '--output-dir',
-	dest='output', type=str,
+	dest='output_dir', type=str,
 	default='build',
-	help="Directory for Linux source and builds")
+	help="Directory for Linux builds")
+parser.add_argument('-S', '--src-dir',
+	dest='src_dir', type=str,
+	default='src',
+	help="Directory for Linux source")
+parser.add_argument('-F', '--ftp-dir',
+	dest='ftp_dir', type=str,
+	default='ftp',
+	help="Directory for source archives")
 parser.add_argument('-T', '--tag',
 	dest='tag', type=str,
 	default=None,
@@ -142,7 +150,9 @@ version = args.version
 verbose = args.verbose
 config_file = args.config
 patch_files = args.patches
-output_dir = args.output
+output_dir = args.output_dir
+src_dir = args.src_dir
+ftp_dir = args.ftp_dir
 make_jobs = args.make_jobs
 kernel_hash = args.hash
 
@@ -185,10 +195,10 @@ else:
 	linux_url_base = "https://cdn.kernel.org/pub/linux/kernel/v%s.x/linux-%s" % (major, version)
 	linux_url = linux_url_base + ".tar.xz"
 	linux_sig = linux_url_base + ".tar.sign"
-linux_tar = os.path.join(output_dir, prefix + version + ".tar.xz")
-linux_dir = os.path.join(output_dir, prefix + version + patch_tag)
+linux_tar = os.path.join(ftp_dir, prefix + version + ".tar.xz")
+linux_dir = os.path.join(src_dir, prefix + version + patch_tag)
 build_dir = os.path.join(output_dir, prefix + version + "-" + tag)
-build_rdir = os.path.join("..", prefix + version + "-" + tag)
+build_rdir = os.path.join("..", "..", output_dir, prefix + version + "-" + tag)
 kconfig_file = os.path.join(build_dir, ".config")
 kernel_file = os.path.join(output_dir, "vmlinuz-" + tag)
 
@@ -212,6 +222,12 @@ symlink_canary = os.path.join(linux_dir, ".symlinks")
 config_canary = os.path.join(build_dir, ".configured")
 build_canary = os.path.join(build_dir, ".built")
 
+if not os.path.exists(ftp_dir):
+	info("Creating ftp dir " + ftp_dir)
+	os.makedirs(ftp_dir, exist_ok=True)
+if not os.path.exists(src_dir):
+	info("Creating src dir " + src_dir)
+	os.makedirs(src_dir, exist_ok=True)
 if not os.path.exists(build_dir):
 	info("Creating build dir " + build_dir)
 	os.makedirs(build_dir, exist_ok=True)
