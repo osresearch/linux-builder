@@ -78,9 +78,9 @@ parser.add_argument('-c', '--config',
 	required=True,
 	help="Linux kernel config file (required)")
 parser.add_argument('-p', '--patch',
-	dest='patch', type=str,
+	dest='patches', type=str, action='append',
 	default=None,
-	help="Linux kernel patch file (optional)")
+	help="Linux kernel patch file (optional, can be multiple)")
 parser.add_argument('--hash',
 	dest='hash', type=str,
 	default=None,
@@ -118,7 +118,7 @@ args = parser.parse_args()
 version = args.version
 verbose = args.verbose
 config_file = args.config
-patch_file = args.patch
+patch_files = args.patches
 output_dir = args.output
 make_jobs = args.make_jobs
 kernel_hash = args.hash
@@ -140,11 +140,19 @@ tag = args.tag
 if not tag:
 	tag = os.path.splitext(os.path.basename(config_file))[0]
 patch_tag = ''
-if patch_file:
-	if not exists(patch_file):
-		die(patch_file + ": patch file does not exist?")
-	(patch, patch_hash) = readfile(patch_file)
-	patch_tag = "-" + os.path.splitext(os.path.basename(patch_file))[0]
+patches = []
+if patch_files:
+	patch_data = b''
+	for patch_file in patch_files:
+		if not exists(patch_file):
+			die(patch_file + ": patch file does not exist?")
+		(data, file_hash) = readfile(patch_file)
+		patches.append([patch_file, data])
+		patch_data += data
+	# compute the hash over all of the patches in order
+	# and use the short form for the directory name
+	patch_hash = hashlib.sha256(data).hexdigest()
+	patch_tag = "-" + patch_hash[0:8]
 
 linux_url_base = "https://cdn.kernel.org/pub/linux/kernel/v%s.x/linux-%s" % (major, version)
 
@@ -191,7 +199,7 @@ if not exists(linux_tar):
 	system("mv", tmpfile, linux_tar)
 
 if not exists(unpack_canary):
-	info(linux_tar + ": unpacking")
+	info(linux_tar + ": unpacking into " + linux_dir)
 	os.makedirs(linux_dir, exist_ok=True)
 	system("tar",
 		"-xf", linux_tar,
@@ -201,23 +209,24 @@ if not exists(unpack_canary):
 
 	writefile(unpack_canary, b'')
 
-if patch_file:
+if len(patches) != 0:
 	if exists(patch_canary):
 		(oldpatch_hash,hashhash) = readfile(patch_canary)
 		if oldpatch_hash != patch_hash.encode('utf-8'):
 			die(patch_file + ": wrong patch applied! delete source directory " + linux_dir + " and try again", patch_hash, oldpatch_hash)
 	else:
-		# since patch chdir into the linux_dir,
-		# we need an absolute path to the patch
-		info(patch_file + ": applying patch")
-		with NamedTemporaryFile() as tmp:
-			tmp.write(patch)
-			tmp.flush()
-			system("patch",
-				"--input", tmp.name,
-				"--directory", linux_dir,
-				"-p1",
-			)
+		for patch in patches:
+			# since patch chdir into the linux_dir,
+			# we need an absolute path to the patch
+			info(patch[0] + ": applying patch to " + linux_dir)
+			with NamedTemporaryFile() as tmp:
+				tmp.write(patch[1])
+				tmp.flush()
+				system("patch",
+					"--input", tmp.name,
+					"--directory", linux_dir,
+					"-p1",
+				)
 		writefile(patch_canary, patch_hash.encode('utf-8'))
 
 if not exists(symlink_canary):
