@@ -157,7 +157,8 @@ class CPIO:
 			filename = os.path.join(filename, fname)
 
 		if filename in self.files:
-			print("%s -> %s: destination already exists!" % (src_filename,filename), file=sys.stderr)
+			#print("%s -> %s: destination already exists!" % (src_filename,filename), file=sys.stderr)
+			pass
 
 		# read in the data from the file if not provided
 		if data is None:
