@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # Build a Linux kernel based on a config file
+# This can also be applied to other KConfig tools and some Makefile tools
 import argparse
 import os
 import sys
@@ -10,11 +11,13 @@ from tempfile import NamedTemporaryFile
 
 verbose = 1
 
-def system(*s):
+def system(*s, cwd=None):
 	# do not close file descriptors, which will allow
 	# communication from sub-make invocations to the make
 	# that invoked us
-	subprocess.run(s, check=True, close_fds=False)
+	if verbose:
+		print(s)
+	subprocess.run(s, check=True, close_fds=False, cwd=cwd)
 def die(*s):
 	print(*s, file=sys.stderr)
 	exit(1)
@@ -113,6 +116,22 @@ parser.add_argument( '-L', '--link',
 	dest='symlinks', action='append',
 	default=[],
 	help="Symlinks to add to the build tree for external code dir=../real")
+parser.add_argument('--configure',
+	dest='configure', type=str,
+	default=None,
+	help="Override the default Linux kernel oldconfig command (will be run in output directory")
+parser.add_argument('--url',
+	dest='url', type=str,
+	default=None,
+	help="Override the default Linux kernel URL path")
+parser.add_argument('-N', '--name',
+	dest='name', type=str,
+	default='linux',
+	help="Override the default Linux prefix for directory names")
+parser.add_argument('--no-kernel',
+	dest='no_kernel', action='store_true',
+	default=False,
+	help="Do not try to extract the vmlinux")
 
 args = parser.parse_args()
 version = args.version
@@ -154,14 +173,18 @@ if patch_files:
 	patch_hash = hashlib.sha256(data).hexdigest()
 	patch_tag = "-" + patch_hash[0:8]
 
-linux_url_base = "https://cdn.kernel.org/pub/linux/kernel/v%s.x/linux-%s" % (major, version)
+prefix = args.name + "-"
 
-linux_tar = os.path.join(output_dir, "linux-" + version + ".tar.xz")
-linux_dir = os.path.join(output_dir, "linux-" + version + patch_tag)
-linux_url = linux_url_base + ".tar.xz"
-linux_sig = linux_url_base + ".tar.sign"
-build_dir = os.path.join(output_dir, "linux-" + version + "-" + tag)
-build_rdir = os.path.join("..", "linux-" + version + "-" + tag)
+if args.url:
+	linux_url = args.url
+else:
+	linux_url_base = "https://cdn.kernel.org/pub/linux/kernel/v%s.x/linux-%s" % (major, version)
+	linux_url = linux_url_base + ".tar.xz"
+	linux_sig = linux_url_base + ".tar.sign"
+linux_tar = os.path.join(output_dir, prefix + version + ".tar.xz")
+linux_dir = os.path.join(output_dir, prefix + version + patch_tag)
+build_dir = os.path.join(output_dir, prefix + version + "-" + tag)
+build_rdir = os.path.join("..", prefix + version + "-" + tag)
 kconfig_file = os.path.join(build_dir, ".config")
 kernel_file = os.path.join(output_dir, "vmlinuz-" + tag)
 
@@ -290,27 +313,38 @@ else:
 	reconfig = True
 
 
+# export some variables
+os.environ['O'] = build_rdir
+
 if reconfig:
 	info(kconfig_file + ": rebuilding kernel config")
 	os.makedirs(build_dir, exist_ok=True)
 	writefile(kconfig_file, config)
+
+	if args.configure is None:
+		system(*make,
+			"-j1",
+			"-C", linux_dir,
+			"O=" + build_rdir,
+			"olddefconfig"
+		)
+	else:
+		system(
+			args.configure,
+			cwd=linux_dir
+		)
+
 	writefile(config_canary, config_hash.encode('utf-8'))
-	system(*make,
-		"-j1",
-		"-C", linux_dir,
-		"O=" + build_rdir,
-		"olddefconfig"
-	)
 
 	
-# finally ready to build!
+# finally ready to build! (in the build dir)
 make_cmd = [ *make,
 	"KBUILD_HOST=builder",
 	"KBUILD_BUILD_USER=builder",
 	"KBUILD_BUILD_TIMESTAMP=" + config_hash,
 	"KBUILD_BUILD_VERSION=" + tag + patch_tag,
-	"-C", linux_dir,
-	"O=" + build_rdir,
+	"-C", build_dir,
+	#"O=" + build_rdir,
 ]
 
 if make_jobs:
@@ -322,6 +356,9 @@ info(build_dir + ": starting build")
 debug(make_cmd)
 
 system(*make_cmd)
+
+if args.no_kernel:
+	sys.exit(0)
 
 (kernel, kernel_hash) = readfile(os.path.join(build_dir, "arch", "x86", "boot", "bzImage"))
 
