@@ -81,6 +81,10 @@ parser.add_argument('-p', '--patch',
 	dest='patch', type=str,
 	default=None,
 	help="Linux kernel patch file (optional)")
+parser.add_argument('--hash',
+	dest='hash', type=str,
+	default=None,
+	help="sha256 hash of the kernel source file")
 parser.add_argument( '-M', '--make',
 	dest='make', type=str,
 	default=make,
@@ -117,6 +121,7 @@ config_file = args.config
 patch_file = args.patch
 output_dir = args.output
 make_jobs = args.make_jobs
+kernel_hash = args.hash
 
 # split it into words following shell semantics
 make = shlex.split(make)
@@ -158,6 +163,8 @@ if verbose > 1:
 	print("build   = " + build_dir)
 	print("kconfig = " + kconfig_file)
 	print("tag     = " + tag)
+	if kernel_hash is not None:
+		print("hash    = " + kernel_hash)
 
 if args.clean:
 	print("Removing " + linux_dir + " and " + build_dir, file=sys.stderr)
@@ -175,8 +182,13 @@ if not os.path.exists(build_dir):
 
 if not exists(linux_tar):
 	info(linux_url + ": fetching")
-	system("wget", "-O", linux_tar, linux_url)
-	# TODO: signature verification
+	tmpfile = linux_tar + ".tmp"
+	system("wget", "-O", tmpfile, linux_url)
+	if kernel_hash is not None:
+		(data,actual_hash) = readfile(tmpfile)
+		if actual_hash != kernel_hash:
+			die(linux_tar + ": " + actual_hash + " != expected " + kernel_hash)
+	system("mv", tmpfile, linux_tar)
 
 if not exists(unpack_canary):
 	info(linux_tar + ": unpacking")
