@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import hashlib
 from tempfile import NamedTemporaryFile
 from enum import IntEnum
 
@@ -158,7 +159,7 @@ class CPIO:
 
 		if filename in self.files:
 			#print("%s -> %s: destination already exists!" % (src_filename,filename), file=sys.stderr)
-			pass
+			return
 
 		# read in the data from the file if not provided
 		if data is None:
@@ -170,7 +171,8 @@ class CPIO:
 		self.mkdir(os.path.split(filename)[0])
 
 		if self.verbose:
-			print("add %s -> %s (%d bytes)" % (src_filename, filename, len(data)))
+			data_hash = hashlib.sha256(data).hexdigest()
+			print("add %s -> %s (%d bytes) %s" % (src_filename, filename, len(data), data_hash))
 #		if depsfile:
 #			print("\t" + src + " \\", file=depsfile)
 
