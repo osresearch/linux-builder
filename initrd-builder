@@ -241,13 +241,14 @@ for filename in args.files:
 
 # restore the cwd to the current directory
 cwd = '.'
-for line in args.extra:
-	try:
-		process_line(line)
-	except Exception as e:
-		print("%s:%d: failed '%s'" % (filename, linenum, line), e, file=sys.stderr)
-		print(traceback.format_exc())
-		exit(1)
+if args.extra:
+	for line in args.extra:
+		try:
+			process_line(line)
+		except Exception as e:
+			print("%s:%d: failed '%s'" % (filename, linenum, line), e, file=sys.stderr)
+			print(traceback.format_exc())
+			exit(1)
 
 
 compressed = args.xz or initrd_filename.endswith('.xz')
