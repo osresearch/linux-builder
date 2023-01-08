@@ -364,7 +364,7 @@ if reconfig:
 	
 # finally ready to build! (in the build dir)
 make_cmd = [ *make,
-	"KBUILD_HOST=builder",
+	"KBUILD_BUILD_HOST=builder",
 	"KBUILD_BUILD_USER=builder",
 	"KBUILD_BUILD_TIMESTAMP=" + config_hash,
 	"KBUILD_BUILD_VERSION=" + tag + patch_tag,
