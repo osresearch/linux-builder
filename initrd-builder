@@ -55,22 +55,6 @@ def deps_add(filename):
 	deps[filename] = 1
 	print("\t" + filename + " \\", file=depsfile)
 
-def cpio_mkdirs(dest, mode = 0o777):
-	# strip any leading / and normalize it
-	dest = re.sub(r'^/*', '', dest)
-	dest = os.path.normpath(dest)
-	path = ''
-	for subdir in re.split(r'/+', dest):
-		if path == '':
-			path = subdir
-		else:
-			path += '/' + subdir
-		if path in dst_files:
-			continue
-		if path == '':
-			continue
-		cpio_entry(path, b'', mode = mode | CPIO_MODE.S_ISDIR)
-
 ### try stripping executables and libraries before loading them
 def try_strip(filename):
 	if no_strip:
@@ -133,12 +117,14 @@ def process_line(line):
 		# recursive directory copy
 		olddir = os.path.normpath(filename)
 
-		print('walking', olddir)
+		if verbose:
+			print('walking', olddir)
+
 		for root, dirs, files in os.walk(olddir):
 			# strip the non-relative path part
 			# is there a better way to do this?
 			newroot = os.path.join(dest, os.path.relpath(root, start=olddir))
-			cpio_mkdirs(newroot)
+			cpio.mkdir(newroot)
 			for f in files:
 				oldname = os.path.join(root, f)
 				newname = os.path.join(newroot, f)
