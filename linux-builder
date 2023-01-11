@@ -239,7 +239,7 @@ if not os.path.exists(build_dir):
 if not exists(linux_tar):
 	info(linux_url + ": fetching")
 	tmpfile = linux_tar + ".tmp"
-	system("wget", "-O", tmpfile, linux_url)
+	system("wget", "--no-verbose", "-O", tmpfile, linux_url)
 	if kernel_hash is not None:
 		(data,actual_hash) = readfile(tmpfile)
 		if actual_hash != kernel_hash:
