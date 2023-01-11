@@ -126,6 +126,10 @@ def process_line(line):
 			newroot = os.path.join(dest, os.path.relpath(root, start=olddir))
 			cpio.mkdir(newroot)
 			for f in files:
+				# skip editor temp files .*.swp
+				if re.match(r'^\..*\.sw[po]$', f):
+					continue
+
 				oldname = os.path.join(root, f)
 				newname = os.path.join(newroot, f)
 				cpio.add(newname, data=readfile(oldname))
