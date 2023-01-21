@@ -117,6 +117,12 @@ def process_line(line):
 		# recursive directory copy
 		olddir = os.path.normpath(filename)
 
+		if len(words) > 2:
+			pattern = words[2]
+		else:
+			# skip editor temp files .*.swp
+			pattern = r'\.[^.]*\.sw[po]$'
+
 		if verbose:
 			print('walking', olddir)
 
@@ -126,12 +132,13 @@ def process_line(line):
 			newroot = os.path.join(dest, os.path.relpath(root, start=olddir))
 			cpio.mkdir(newroot)
 			for f in files:
-				# skip editor temp files .*.swp
-				if re.match(r'^\..*\.sw[po]$', f):
-					continue
-
 				oldname = os.path.join(root, f)
 				newname = os.path.join(newroot, f)
+
+				# filter any that match the exclusion pattern
+				if re.search(pattern, oldname):
+					continue
+
 				cpio.add(newname, data=readfile(oldname))
 				deps_add(oldname)
 
