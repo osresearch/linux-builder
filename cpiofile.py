@@ -90,8 +90,7 @@ class CPIOFile:
 		if (name_len+2) % 4 != 0:
 			name += bytes(4 - ((name_len+2) % 4))
 
-
-		return b'' \
+		return bytearray() \
 			+ b'070701' \
 			+ b'00000000' \
 			+ cpio_hex(self.mode) \
@@ -171,7 +170,7 @@ class CPIO:
 		self.mkdir(os.path.split(filename)[0])
 
 		if self.verbose:
-			data_hash = hashlib.sha256(data).hexdigest()
+			data_hash = '---' #hashlib.sha256(data).hexdigest()
 			print("add %s -> %s (%d bytes) %s" % (src_filename, filename, len(data), data_hash))
 #		if depsfile:
 #			print("\t" + src + " \\", file=depsfile)
@@ -217,7 +216,7 @@ class CPIO:
 			mode = 0o777 | MODE.S_ISLNK)
 
 	def tobytes(self, compressed=False):
-		image = b''
+		image = bytearray()
 		for dst in sorted(self.files):
 			#print(dst)
 			f = self.files[dst]
@@ -230,11 +229,14 @@ class CPIO:
 		# align before starting the trailer file
 		image = align(image, 4)
 		image += CPIOFile("TRAILER!!!", b'', mode=0).tobytes()
+		if self.verbose:
+			print("**** CPIOFile done")
 
 		if compressed:
 			# write to a temp file first
 			old_len = len(image)
 
+			print("**** Starting compression")
 			with NamedTemporaryFile() as tmp:
 				tmp.write(image)
 				tmp.flush()
@@ -251,6 +253,7 @@ class CPIO:
 					return None
 				image = sub.stdout
 
+		print("**** Aligning image")
 		# pad compressed data to a full block size to make linux
 		# happy if this is ever concatenated with another initrd
 		image = align(image, 512)
