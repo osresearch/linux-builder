@@ -57,18 +57,24 @@ def deps_add(filename):
 
 ### try stripping executables and libraries before loading them
 def try_strip(filename):
-	if no_strip:
-		return readfile(filename)
+	data = readfile(filename)
+	#print(f"{filename}: {data[0:4]=}")
+	if no_strip or data[0:4] != b'\x7fELF':
+		return data
 
 	try:
 		with NamedTemporaryFile() as tmp:
 			rc = system("strip", "-o", tmp.name, filename)
 			if rc.returncode == 0:
 				# strip succeeded, use it instead
-				return readfile(tmp.name)
+				new_data = readfile(tmp.name)
+				print(f"{filename}: {len(data)} -> {len(new_data)}")
+				return new_data
 	except Exception as e:
 		# something went wrong with strip, use the file as is
-		return readfile(filename)
+		pass
+
+	return data
 
 def process_line(line):
 	words = re.split(r'\s+', line)
@@ -248,9 +254,14 @@ if args.extra:
 			print(traceback.format_exc())
 			exit(1)
 
+if verbose:
+	print("**** all files added")
 
 compressed = args.xz or initrd_filename.endswith('.xz')
 image = cpio.tobytes(compressed)
+
+if verbose:
+	print("**** writing cpio image ")
 
 if initrd_filename == '-':
 	sys.stdout.buffer.write(image)
