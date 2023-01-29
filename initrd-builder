@@ -17,7 +17,7 @@ cwd = '.'
 no_strip = False
 
 depsfile = None
-deps = ()
+deps = {}
 cpio = cpiofile.CPIO()
 
 def system(*s):
@@ -48,17 +48,17 @@ def readfile(filename):
 		return f.read()
 
 def deps_add(filename):
-	if not depsfile:
-		return
+	#print(f"{filename=} {filename in deps}")
 	if filename in deps:
-		return
+		return False
 	deps[filename] = 1
-	print("\t" + filename + " \\", file=depsfile)
+	if depsfile:
+		print("\t" + filename + " \\", file=depsfile)
+	return True
 
 ### try stripping executables and libraries before loading them
 def try_strip(filename):
 	data = readfile(filename)
-	#print(f"{filename}: {data[0:4]=}")
 	if no_strip or data[0:4] != b'\x7fELF':
 		return data
 
@@ -68,7 +68,7 @@ def try_strip(filename):
 			if rc.returncode == 0:
 				# strip succeeded, use it instead
 				new_data = readfile(tmp.name)
-				print(f"{filename}: {len(data)} -> {len(new_data)}")
+				#print(f"{filename}: {len(data)} -> {len(new_data)}")
 				return new_data
 	except Exception as e:
 		# something went wrong with strip, use the file as is
@@ -119,6 +119,8 @@ def process_line(line):
 		print(filename + ": skipping")
 		return
 
+	size = 0
+
 	if filename.endswith('/'):
 		# recursive directory copy
 		olddir = os.path.normpath(filename)
@@ -128,9 +130,6 @@ def process_line(line):
 		else:
 			# skip editor temp files .*.swp
 			pattern = r'\.[^.]*\.sw[po]$'
-
-		if verbose:
-			print('walking', olddir)
 
 		for root, dirs, files in os.walk(olddir):
 			# strip the non-relative path part
@@ -145,8 +144,15 @@ def process_line(line):
 				if re.search(pattern, oldname):
 					continue
 
-				cpio.add(newname, data=readfile(oldname))
-				deps_add(oldname)
+				data = readfile(oldname)
+				cpio.add(newname, data=data)
+
+				if deps_add(oldname):
+					size += len(data)
+
+		if verbose:
+			print("%s: %d (recursive)" % (olddir, size))
+
 
 		# ldd is *not* done on recursive directories
 		return
@@ -154,16 +160,21 @@ def process_line(line):
 	# strip the local path
 	dest_filename = os.path.basename(filename)
 
-	cpio.add(dest + "/" + dest_filename, data=try_strip(filename), mode=filemode(filename))
-	deps_add(filename)
+	data = try_strip(filename)
+	cpio.add(dest + "/" + dest_filename, data=data, mode=filemode(filename))
 
-	deps = system("ldd", filename)
-	if deps.returncode != 0:
-		return
-	if deps.stderr == b'\tnot a dynamic executable\n':
+	if deps_add(filename):
+		size += len(data)
+
+	file_deps = system("ldd", filename)
+	if file_deps.returncode != 0 \
+	or file_deps.stderr == b'\tnot a dynamic executable\n':
+		if verbose:
+			print("%s: %d" % (filename, size))
 		return
 
-	for dep in deps.stdout.split(b'\n'):
+	dep_size = 0
+	for dep in file_deps.stdout.split(b'\n'):
 		dep = dep.decode('utf-8')
 		dep = re.sub(r'^.* => ', '', dep)
 		dep = re.sub(r'^\s*', '', dep)
@@ -174,8 +185,13 @@ def process_line(line):
 		
 		# strip the local path and put the library in the libdir
 		dest_lib = os.path.basename(lib)
-		cpio.add(libdir + "/" + dest_lib, data=try_strip(lib))
-		deps_add(filename)
+		data = try_strip(lib)
+		cpio.add(libdir + "/" + dest_lib, data=data)
+		if deps_add(lib):
+			dep_size += len(data)
+
+	if verbose:
+		print("%s: %d (deps %d)" % (filename, size, dep_size))
 
 parser = argparse.ArgumentParser()
 parser.add_argument('files',
@@ -206,7 +222,7 @@ parser.add_argument('--add',
 
 args = parser.parse_args()
 verbose = args.verbose
-cpio.verbose = verbose
+#cpio.verbose = verbose
 initrd_filename = args.cpio
 no_strip = args.no_strip
 
