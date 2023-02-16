@@ -106,9 +106,14 @@ def process_line(line):
 		dest = words[1]
 
 	# - marks optional files; do not die if they do not exist
+	# ! marks forced files; do not die if their dependencies do not exist
 	optional = False
+	force = False
 	if filename[0] == '-':
 		optional = True
+		filename = filename[1:]
+	if filename[0] == '!':
+		force = True
 		filename = filename[1:]
 
 	# if a relative file name is provided, update it with the cwd
@@ -176,6 +181,12 @@ def process_line(line):
 	dep_size = 0
 	for dep in file_deps.stdout.split(b'\n'):
 		dep = dep.decode('utf-8')
+		if re.search(r'not found', dep):
+			print("MISSING LIBRARY: ", dep, file=sys.stderr)
+			# do not die on optional missing dependencies
+			if force:
+				continue
+
 		dep = re.sub(r'^.* => ', '', dep)
 		dep = re.sub(r'^\s*', '', dep)
 		lib = dep.split(' ')[0]
