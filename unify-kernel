@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/env python3
 # Derived from safeboot unify-kernel
 # Creates a unified kernel image with the named sections and files
 # (typically `kernel`, `initrd`, `cmdline`, and `osrel`) bundled into
@@ -6,73 +6,146 @@
 # 
 # '
 
-usage='
-Usage:
-unify-kernel bootx64.efi \
-	linux=bzImage \
-	initrd=initrd.cpio.xz \
-	cmdline=cmdline.txt \
-	...
+import sys
+import os
+import re
+import subprocess
 
-To use a different stub than loader.efi, pass in a
-stub=/path/to/loader.efi argument.
-'
+verbose = 0
 
-die() { echo >&2 "$@" ; exit 1 ; }
-warn() { echo >&2 "$@" ; }
+def unify(
+	output_filename,
+	sections,
+	offset = None,
+	align = None,
+	stub = None,
+	objcopy = None,
+):
+	if stub is None:
+		stub = "/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
+	if offset is None:
+		offset = 0x20000
+	if align is None:
+		align = 0x10000
+	if objcopy is None:
+		objcopy = "objcopy"
 
-unified="$1"
-shift
+	if verbose:
+		print(f"stub {stub}", file=sys.stderr)
 
-if [ -z "$unified" ]; then
-	die "$usage"
-fi
+	section_args = []
+	for s in sections:
+		g = re.match(r"(.*)=(.*)$", s)
+		if not g:
+			print("unable to parse section", s, file=sys.stderr)
+			return False
 
-# "$PREFIX/usr/lib/systemd/boot/efi/linuxx64.efi.stub" \
-STUB="$(dirname $0)/loader.efi"
+		secname = g[1]
+		filename = g[2]
+		with open(filename, "rb") as f:
+			size = len(f.read())
 
-sections=()
-offset=$((0x20000))
-blocksize=$((0x10000))
+		if verbose:
+			print(secname, filename, size, "0x%x" % (offset), file=sys.stderr)
 
-# Build the list of sections to add, splitting on = signs
-for section in "$@"; do
-	name="${section%=*}"
-	file="${section#*=}"
-	if [ "$name" = "$section" ]; then
-		die "$name: format error (not name=file?)"
-	fi
-	if [ ! -r "$file" ]; then
-		die "$file: unable to read for section $name"
-	fi
+		section_args += [
+			"--add-section", f".{secname}={filename}",
+			"--change-section-vma", f".{secname}={offset}",
+		]
 
-	if [ "$name" = "stub" ]; then
-		STUB="$file"
-		continue
-	fi
+		# increase the offset, rounding to the block size
+		offset = (offset + size + align - 1) // align * align
 
-	size="$(wc -c < "$file")"
-	warn ".$name=$file: $size @ $offset"
+#	if verbose:
+#		print(section_args, file=sys.stderr)
+	rc = subprocess.run([
+		objcopy,
+		*section_args,
+		stub,
+		output_filename,
+	])
 
-	sections+=( \
-		--add-section		".$name=$file" \
-		--change-section-vma	".$name=$offset" \
+	if rc.returncode != 0:
+		print(f"{output_filename}: objcopy failed", file=sys.stderr)
+		return False
+
+	subprocess.run(["sha256sum", output_filename])
+	return True
+
+if __name__ == "__main__":
+	import argparse
+
+	parser = argparse.ArgumentParser(
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		epilog = """
+The normal list of sections for a Linux unified kernel image is:
+
+  linux=bzImage \\
+  initrd=initrd.cpio.xz \\
+  cmdline=cmdline.txt
+
+For a Xen unified hypervisor the xen.efi file is used as the stub
+and the sections are:
+
+  kernel=bzImage \\
+  ramdisk=initrd.cpio.xz \\
+  config=xen.cfg \\
+  ucode=ucode.bin \\
+  xsm=xsm.cfg
+
+The resulting output file can be signed with sbsign or other tools.
+""",
 	)
 
-	# round up the offset to the next block size
-	offset="$(( (offset + size + blocksize-1) / blocksize * blocksize ))"
-done
+	parser.add_argument('-v', '--verbose',
+		action="count",
+		help = "Increase verbosity",
+	)
 
-if [ ! -r "$STUB" ]; then
-	die "Unable to find EFI stub $stub"
-fi
+	parser.add_argument('-o', '--output',
+		default = 'unified.efi',
+		help = "Destination for the unified kernel image",
+	)
+
+	parser.add_argument('--stub',
+		help = "Path to systemd efi stub executable",
+		nargs = 1,
+	)
+
+	parser.add_argument('--offset',
+		nargs = 1,
+		type = int,
+		help = "Offset in the executable to start adding sections",
+	)
+
+	parser.add_argument('--align',
+		nargs = 1,
+		type = int,
+		help = "Alignment for each section",
+	)
+
+	parser.add_argument('--objcopy',
+		help = "Path to objcopy executable",
+		nargs = 1,
+	)
 
 
+	parser.add_argument("sections",
+		help = "List of sections as name=path-to-file",
+		nargs = '+',
+	)
 
-objcopy \
-	"${sections[@]}" \
-	"$STUB" \
-	"$unified" \
-|| die "$unified: unable to create"
+	args = parser.parse_args(sys.argv[1:])
 
-sha256sum "$unified"
+	verbose = args.verbose
+	if unify(
+		args.output,
+		sections=args.sections,
+		offset=args.offset,
+		align=args.align,
+		stub=args.stub,
+		objcopy=args.objcopy,
+	):
+		sys.exit(0)
+	else:
+		sys.exit(-1)
