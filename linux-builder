@@ -3,6 +3,7 @@
 # This can also be applied to other KConfig tools and some Makefile tools
 import argparse
 import os
+import re
 import sys
 import subprocess
 import hashlib
@@ -53,16 +54,16 @@ if not make:
 parser = argparse.ArgumentParser()
 parser.add_argument('-O', '--output-dir',
 	dest='output_dir', type=str,
-	default='build',
-	help="Directory for Linux builds")
+	default=os.environ.get('O', 'build'),
+	help="Directory for Linux builds (or $O in the environment)")
 parser.add_argument('-S', '--src-dir',
 	dest='src_dir', type=str,
-	default='src',
-	help="Directory for Linux source")
+	default=os.environ.get('SRC', 'src'),
+	help="Directory for Linux source (or $SRC in the environment)")
 parser.add_argument('-F', '--ftp-dir',
 	dest='ftp_dir', type=str,
-	default='ftp',
-	help="Directory for source archives")
+	default=os.environ.get('FTP', 'ftp'),
+	help="Directory for source archives (or $FTP in the environment)")
 parser.add_argument('-T', '--tag',
 	dest='tag', type=str,
 	default=None,
@@ -86,8 +87,8 @@ parser.add_argument('--clean',
 parser.add_argument('-c', '--config',
 	dest='config', type=str,
 	default=None,
-	required=True,
-	help="Linux kernel config file (required)")
+	#required=True,
+	help="Linux kernel config file (strongly suggested)")
 parser.add_argument('-p', '--patch',
 	dest='patches', type=str, action='append',
 	default=None,
@@ -127,7 +128,7 @@ parser.add_argument( '-L', '--link',
 parser.add_argument('--configure',
 	dest='configure', type=str,
 	default=None,
-	help="Override the default Linux kernel oldconfig command (will be run in output directory")
+	help="Override the default Linux kernel oldconfig command (will be run in output directory)")
 parser.add_argument('--url',
 	dest='url', type=str,
 	default=None,
@@ -137,9 +138,13 @@ parser.add_argument('-N', '--name',
 	default='linux',
 	help="Override the default Linux prefix for directory names")
 parser.add_argument('--no-kernel',
-	dest='no_kernel', action='store_true',
-	default=False,
+	dest='do_kernel', action='store_false',
+	default=True,
 	help="Do not try to extract the vmlinux")
+parser.add_argument('--strip-components',
+	dest='strip_components', type=int,
+	default=1,
+	help="Number of directory prefixes to strip from tar file")
 parser.add_argument('--targets',
 	dest='make_target', type=str,
 	default='',
@@ -161,12 +166,17 @@ make = shlex.split(make)
 
 # ensure that the config exists,
 # TODO: unless this is a menuconfig which might be creating from scratch
-if not exists(config_file):
-	die(config_file + ": config file does not exist?")
+config = None
+config_hash = '0'
+if args.do_kernel:
+	if not config_file:
+		die("Config file must be specified for kernel build")
+	if not exists(config_file):
+		die(config_file + ": config file does not exist?")
 
-# Read the base configuration (may be updated later)
-# TODO: handle non-existant file for menuconfig
-(config, config_hash) = readfile(config_file)
+	# Read the base configuration (may be updated later)
+	# TODO: handle non-existant file for menuconfig
+	(config, config_hash) = readfile(config_file)
 
 major = version.split('.')[0]
 tag = ''
@@ -202,18 +212,18 @@ build_dir = os.path.join(output_dir, prefix + version + tag)
 abs_build = os.path.abspath(build_dir)
 abs_linux = os.path.abspath(linux_dir)
 build_rdir = os.path.relpath(abs_build, abs_linux)
+linux_rdir = os.path.relpath(abs_linux, abs_build)
 
 kconfig_file = os.path.join(build_dir, ".config")
 kernel_file = os.path.join(output_dir, "vmlinuz" + tag)
 
 if verbose > 1:
-	print("URL     = " + linux_url)
-	print("source  = " + linux_dir)
-	print("build   = " + build_dir)
-	print("kconfig = " + kconfig_file)
-	print("tag     = " + tag)
-	if kernel_hash is not None:
-		print("hash    = " + kernel_hash)
+	print(f"URL     = {linux_url}")
+	print(f"source  = {linux_dir}")
+	print(f"build   = {build_dir}")
+	print(f"kconfig = {kconfig_file}")
+	print(f"tag     = {tag}")
+	print(f"hash    = {kernel_hash}")
 
 if args.clean:
 	print("Removing " + linux_dir + " and " + build_dir, file=sys.stderr)
@@ -252,7 +262,7 @@ if not exists(unpack_canary):
 	system("tar",
 		"-xf", linux_tar,
 		"-C", linux_dir,
-		"--strip-components", "1",
+		"--strip-components", str(args.strip_components),
 	)
 
 	writefile(unpack_canary, b'')
@@ -320,43 +330,57 @@ if args.cmdline is not None:
 	config += b'CONFIG_CMDLINE_BOOL=y\n'
 	config += b'CONFIG_CMDLINE="' + cmdline + b'"\n'
 
-# recompute the hash
-config_hash = hashlib.sha256(config).hexdigest()
+# recompute the hash if there is a config file
 
 # check to see if we need to reconfigure
 reconfig = False
-if exists(config_canary):
+if not exists(config_canary):
+	# no canary, force a reconfiguration
+	reconfig = True
+elif config:
 	# check to see if the parameters are the same
+	config_hash = hashlib.sha256(config).hexdigest()
 	(oldconfig_hash,hashhash) = readfile(config_canary)
 	if os.stat(config_canary).st_mtime < os.stat(config_file).st_mtime:
 		# they have touched the local config, force a reconfig
 		reconfig = True
 	if oldconfig_hash != config_hash.encode('utf-8'):
 		reconfig = True
-else:
-	# no canary, force a reconfiguration
-	reconfig = True
 
 
 # export some variables
 os.environ['O'] = build_rdir
+os.environ['S'] = src_dir
+
+def shell_prep(raw_args):
+	new_args = []
+	for arg in shlex.split(raw_args):
+		arg = re.sub(r"{build_dir}", build_dir, arg)
+		arg = re.sub(r"{build_rdir}", build_rdir, arg)
+		arg = re.sub(r"{src_dir}", linux_dir, arg)
+		arg = re.sub(r"{src_rdir}", linux_rdir, arg)
+		arg = re.sub(r"{version}", args.version, arg)
+		new_args.append(arg)
+
+	return new_args
 
 if reconfig:
 	info(kconfig_file + ": rebuilding kernel config")
 	os.makedirs(build_dir, exist_ok=True)
-	writefile(kconfig_file, config)
+	if config:
+		writefile(kconfig_file, config)
 
 	if args.configure is None:
 		system(*make,
 			"-j1",
 			"-C", linux_dir,
 			"O=" + build_rdir,
-			"olddefconfig"
+			"olddefconfig",
 		)
 	else:
 		system(
-			*shlex.split(args.configure),
-			cwd=linux_dir
+			*shell_prep(args.configure),
+			cwd=build_dir,
 		)
 
 	writefile(config_canary, config_hash.encode('utf-8'))
@@ -369,7 +393,7 @@ make_cmd = [ *make,
 	"KBUILD_BUILD_TIMESTAMP=" + config_hash,
 	"KBUILD_BUILD_VERSION=" + tag + patch_tag,
 	"-C", build_dir,
-	*shlex.split(args.make_target)
+	*shell_prep(args.make_target),
 	#"O=" + build_rdir,
 ]
 
@@ -385,7 +409,7 @@ system(*make_cmd)
 
 writefile(build_canary, b'')
 
-if args.no_kernel:
+if not args.do_kernel:
 	sys.exit(0)
 
 (kernel, kernel_hash) = readfile(os.path.join(build_dir, "arch", "x86", "boot", "bzImage"))
