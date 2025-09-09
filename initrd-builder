@@ -59,7 +59,9 @@ def deps_add(filename):
 ### try stripping executables and libraries before loading them
 def try_strip(filename):
 	data = readfile(filename)
-	if no_strip or data[0:4] != b'\x7fELF':
+	if no_strip \
+	or filename.endswith(".ko") \
+	or data[0:4] != b'\x7fELF':
 		return data
 
 	try:
