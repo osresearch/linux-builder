@@ -76,7 +76,18 @@ def try_strip(filename):
 
 	return data
 
+def envsubst(match):
+	varname = match.group(1)
+	value = os.environ.get(varname, None)
+	#print(f"$({varname})='{value}'", file=sys.stderr)
+	if not value:
+		raise ValueError(f"{varname}: undefined variable")
+	return value
+
 def process_line(line):
+	# do any environment substitution
+	line = re.sub(r"\$\((.*?)\)", envsubst, line)
+
 	words = re.split(r'\s+', line)
 	if words[0] == "symlink":
 		# the filename is the second part, the data in that
