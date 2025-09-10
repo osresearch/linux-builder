@@ -33,6 +33,7 @@ def exists(f):
 		os.stat(f)
 		return True
 	except Exception as e:
+		#print(f, e)
 		return False
 def readfile(filename):
 	with open(filename, "rb") as f:
@@ -145,7 +146,7 @@ parser.add_argument('--strip-components',
 	dest='strip_components', type=int,
 	default=1,
 	help="Number of directory prefixes to strip from tar file")
-parser.add_argument('--targets',
+parser.add_argument('--target',
 	dest='make_target', type=str,
 	default='',
 	help="Target for make to build")
@@ -209,8 +210,19 @@ linux_tar = os.path.join(ftp_dir, prefix + version + ".tar.xz")
 linux_dir = os.path.join(src_dir, prefix + version + patch_tag)
 build_dir = os.path.join(output_dir, prefix + version + tag)
 
-abs_build = os.path.abspath(build_dir)
-abs_linux = os.path.abspath(linux_dir)
+# ensure that the paths exists before calling realpath
+if not os.path.exists(ftp_dir):
+	info("Creating ftp dir " + ftp_dir)
+	os.makedirs(ftp_dir, exist_ok=True)
+if not os.path.exists(linux_dir):
+	info("Creating src dir " + linux_dir)
+	os.makedirs(src_dir, exist_ok=True)
+if not os.path.exists(build_dir):
+	info("Creating build dir " + build_dir)
+	os.makedirs(build_dir, exist_ok=True)
+
+abs_build = os.path.realpath(build_dir)
+abs_linux = os.path.realpath(linux_dir)
 build_rdir = os.path.relpath(abs_build, abs_linux)
 linux_rdir = os.path.relpath(abs_linux, abs_build)
 
@@ -236,15 +248,6 @@ symlink_canary = os.path.join(linux_dir, ".symlinks")
 config_canary = os.path.join(build_dir, ".configured")
 build_canary = os.path.join(build_dir, ".built")
 
-if not os.path.exists(ftp_dir):
-	info("Creating ftp dir " + ftp_dir)
-	os.makedirs(ftp_dir, exist_ok=True)
-if not os.path.exists(src_dir):
-	info("Creating src dir " + src_dir)
-	os.makedirs(src_dir, exist_ok=True)
-if not os.path.exists(build_dir):
-	info("Creating build dir " + build_dir)
-	os.makedirs(build_dir, exist_ok=True)
 
 if not exists(linux_tar):
 	info(linux_url + ": fetching")
@@ -355,9 +358,9 @@ os.environ['S'] = src_dir
 def shell_prep(raw_args):
 	new_args = []
 	for arg in shlex.split(raw_args):
-		arg = re.sub(r"{build_dir}", build_dir, arg)
+		arg = re.sub(r"{build_dir}", abs_build, arg)
 		arg = re.sub(r"{build_rdir}", build_rdir, arg)
-		arg = re.sub(r"{src_dir}", linux_dir, arg)
+		arg = re.sub(r"{src_dir}", abs_linux, arg)
 		arg = re.sub(r"{src_rdir}", linux_rdir, arg)
 		arg = re.sub(r"{version}", args.version, arg)
 		new_args.append(arg)
@@ -385,7 +388,7 @@ if reconfig:
 
 	writefile(config_canary, config_hash.encode('utf-8'))
 
-	
+
 # finally ready to build! (in the build dir)
 make_cmd = [ *make,
 	"KBUILD_BUILD_HOST=builder",
